@@ -1,12 +1,9 @@
 """
 Canonical State — SQLite-backed, append-only
 
-Non-canonical state (in-memory StateManager) may propose.
-Canonical state records ONLY what has passed BGP validation and verification.
-
+Only results that have passed BGP validation and verification are recorded here.
 Canonical state is the architecture's authoritative truth surface.
-It must never absorb unresolved process debt.
-It must never be written to directly — only through record_receipt().
+It is never written to directly — only through record_receipt().
 
 Tables:
   receipts        — every COMMITTED execution
@@ -25,20 +22,12 @@ from .source_loop import SourceLoop
 
 
 class CanonicalState(SourceLoop):
-    """
-    Append-only canonical state store.
-    Inherits SourceLoop — all writes go through the metabolic closure.
-    """
 
     def __init__(self, db_path: str = "./canonical.db"):
         super().__init__()
         self._db_path = Path(db_path)
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
-
-    # ------------------------------------------------------------------
-    # Schema
-    # ------------------------------------------------------------------
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(str(self._db_path))
@@ -62,11 +51,11 @@ class CanonicalState(SourceLoop):
                 );
 
                 CREATE TABLE IF NOT EXISTS canonical_files (
-                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                    path        TEXT NOT NULL,
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path         TEXT NOT NULL,
                     content_hash TEXT NOT NULL,
-                    version     TEXT NOT NULL,
-                    recorded_at REAL NOT NULL
+                    version      TEXT NOT NULL,
+                    recorded_at  REAL NOT NULL
                 );
 
                 CREATE TABLE IF NOT EXISTS governance_log (
@@ -80,36 +69,36 @@ class CanonicalState(SourceLoop):
             """)
 
     # ------------------------------------------------------------------
-    # SourceLoop phases — called through run()
+    # Governed write path
     # ------------------------------------------------------------------
 
-    def read_body(self, input_data: Any) -> Dict:
-        """B: Read the result to be recorded."""
+    def read(self, input_data: Any) -> Dict:
         return {"result": input_data}
 
-    def apply_frame(self, body: Dict) -> Dict:
-        """F: Validate that only COMMITTED results enter canonical state."""
+    def frame(self, body: Dict) -> Dict:
         result = body["result"]
+        valid  = (
+            isinstance(result, dict)
+            and result.get("status") == "COMMITTED"
+            and "proposal" in result
+            and "version" in result
+        )
         return {
-            "result":    result,
-            "is_valid":  (
-                isinstance(result, dict)
-                and result.get("status") == "COMMITTED"
-                and "proposal" in result
-                and "version" in result
+            "result":   result,
+            "is_valid": valid,
+            "reason":   None if valid else (
+                f"Non-committed result blocked: "
+                f"status={result.get('status') if isinstance(result, dict) else 'unknown'}"
             ),
-            "reason": None if (
-                isinstance(result, dict)
-                and result.get("status") == "COMMITTED"
-            ) else f"Non-committed result blocked: status={result.get('status') if isinstance(result, dict) else 'unknown'}",
         }
 
-    def collapse(self, framed: Dict) -> str:
+    def decide(self, framed: Dict) -> str:
         return "WRITE" if framed["is_valid"] else "REJECT"
 
-    def return_output(self, decision: str, framed: Dict) -> Optional[Dict]:
+    def emit(self, decision: str, framed: Dict) -> Optional[Dict]:
         if decision != "WRITE":
             return None
+
         result   = framed["result"]
         exec_res = result.get("result", {})
         action   = result.get("_action_type", "unknown")
@@ -136,10 +125,9 @@ class CanonicalState(SourceLoop):
                 time.time(),
             ))
 
-            # Track file writes in canonical_files
             if action == "file_write" and exec_res.get("ok"):
-                path = params.get("path", "")
-                content = params.get("content", "")
+                path         = params.get("path", "")
+                content      = params.get("content", "")
                 content_hash = hashlib.sha256(content.encode()).hexdigest()
                 conn.execute("""
                     INSERT INTO canonical_files (path, content_hash, version, recorded_at)
@@ -148,26 +136,11 @@ class CanonicalState(SourceLoop):
 
         return {"recorded": True, "proposal_id": result["proposal"], "version": result["version"]}
 
-    def verify_invariant(self, output: Any) -> bool:
+    def invariant(self, output: Any) -> bool:
         return output is None or isinstance(output, dict)
 
-    def detect_drift(self, output: Any) -> Optional[str]:
+    def drift(self, output: Any) -> Optional[str]:
         return None
-
-    def _summarize(self, exec_result: Dict) -> str:
-        if not exec_result:
-            return ""
-        if "content" in exec_result:
-            return f"read:{len(exec_result['content'])}b"
-        if "entries" in exec_result:
-            return f"listed:{len(exec_result['entries'])}entries"
-        if "stdout" in exec_result:
-            return exec_result["stdout"].strip()[:100]
-        if "result" in exec_result:
-            return str(exec_result["result"])[:100]
-        if "hash" in exec_result:
-            return f"hash:{exec_result['hash'][:16]}"
-        return "ok"
 
     # ------------------------------------------------------------------
     # Query interface
@@ -176,10 +149,7 @@ class CanonicalState(SourceLoop):
     def record_receipt(self, bgp_result: Dict, action_type: str,
                        parameters: Dict, idempotency_key: str,
                        pre_version: str) -> Dict:
-        """
-        Record a verified BGP result into canonical state.
-        The only path by which results enter canonical truth.
-        """
+        """The only path by which results enter canonical truth."""
         enriched = {
             **bgp_result,
             "_action_type":     action_type,
@@ -194,12 +164,12 @@ class CanonicalState(SourceLoop):
             if action_type:
                 rows = conn.execute(
                     "SELECT * FROM receipts WHERE action_type=? ORDER BY recorded_at DESC LIMIT ?",
-                    (action_type, limit)
+                    (action_type, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
                     "SELECT * FROM receipts ORDER BY recorded_at DESC LIMIT ?",
-                    (limit,)
+                    (limit,),
                 ).fetchall()
         return [dict(r) for r in rows]
 
@@ -207,7 +177,7 @@ class CanonicalState(SourceLoop):
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT * FROM canonical_files WHERE path=? ORDER BY recorded_at DESC LIMIT 1",
-                (path,)
+                (path,),
             ).fetchone()
         return dict(row) if row else None
 
@@ -215,7 +185,7 @@ class CanonicalState(SourceLoop):
         with self._connect() as conn:
             row = conn.execute(
                 "SELECT 1 FROM receipts WHERE idempotency_key=?",
-                (idempotency_key,)
+                (idempotency_key,),
             ).fetchone()
         return row is not None
 
@@ -240,3 +210,13 @@ class CanonicalState(SourceLoop):
             "governance_log":  gov,
             "db_path":         str(self._db_path),
         }
+
+    def _summarize(self, exec_result: Dict) -> str:
+        if not exec_result:
+            return ""
+        if "content"  in exec_result: return f"read:{len(exec_result['content'])}b"
+        if "entries"  in exec_result: return f"listed:{len(exec_result['entries'])}entries"
+        if "stdout"   in exec_result: return exec_result["stdout"].strip()[:100]
+        if "result"   in exec_result: return str(exec_result["result"])[:100]
+        if "hash"     in exec_result: return f"hash:{exec_result['hash'][:16]}"
+        return "ok"
