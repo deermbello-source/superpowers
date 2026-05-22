@@ -1,0 +1,32 @@
+[
+  {
+    "constraint_id": "state_version_current",
+    "scope": "proposal",
+    "field": "proposal.state_snapshot_version",
+    "operator": "exists",
+    "value": null,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Every proposal must reference a state version"
+  },
+  {
+    "constraint_id": "action_type_known",
+    "scope": "proposal",
+    "field": "proposal.action_type",
+    "operator": "in",
+    "value": ["file_read", "file_write", "file_list", "file_delete", "shell_run", "govern"],
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Action type must be registered"
+  },
+  {
+    "constraint_id": "parameters_present",
+    "scope": "proposal",
+    "field": "proposal.parameters_complete",
+    "operator": "eq",
+    "value": true,
+    "severity": "critical",
+    "on_fail": "clarify",
+    "description": "All required parameters must be present"
+  }
+]

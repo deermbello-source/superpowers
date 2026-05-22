@@ -1,0 +1,32 @@
+[
+  {
+    "constraint_id": "command_whitelisted",
+    "scope": "derived",
+    "field": "derived.command_in_whitelist",
+    "operator": "eq",
+    "value": true,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Shell command must be in the allowed_commands whitelist"
+  },
+  {
+    "constraint_id": "no_shell_injection",
+    "scope": "derived",
+    "field": "derived.shell_injection_detected",
+    "operator": "eq",
+    "value": false,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Arguments must not contain shell metacharacters"
+  },
+  {
+    "constraint_id": "timeout_within_limit",
+    "scope": "derived",
+    "field": "derived.timeout_within_limit",
+    "operator": "eq",
+    "value": true,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Command timeout must not exceed max_command_timeout_seconds"
+  }
+]

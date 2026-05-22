@@ -1,0 +1,42 @@
+[
+  {
+    "constraint_id": "write_path_allowed",
+    "scope": "derived",
+    "field": "derived.path_in_write_allowlist",
+    "operator": "eq",
+    "value": true,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Write target must be within an allowed directory"
+  },
+  {
+    "constraint_id": "read_path_allowed",
+    "scope": "derived",
+    "field": "derived.path_in_read_allowlist",
+    "operator": "eq",
+    "value": true,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Read target must be within an allowed directory"
+  },
+  {
+    "constraint_id": "file_size_within_limit",
+    "scope": "derived",
+    "field": "derived.content_size_bytes",
+    "operator": "lte",
+    "value": 1048576,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "File content must not exceed max_file_size_bytes"
+  },
+  {
+    "constraint_id": "no_path_traversal",
+    "scope": "derived",
+    "field": "derived.path_traversal_detected",
+    "operator": "eq",
+    "value": false,
+    "severity": "critical",
+    "on_fail": "block",
+    "description": "Path must not contain .. traversal sequences"
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "allowed_write_dirs": ["./workspace", "./output", "./data"],
+  "allowed_read_dirs":  ["./workspace", "./output", "./data", "./docs"],
+  "allowed_commands":   ["python", "pip", "git", "ls", "cat", "echo", "mkdir", "cp", "mv"],
+  "max_file_size_bytes": 1048576,
+  "max_command_timeout_seconds": 30,
+  "ollama_url": "http://127.0.0.1:11434",
+  "ollama_model": "llama3.2"
+}
