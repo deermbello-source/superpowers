@@ -1,0 +1,121 @@
+name: Validation Rule Builder
+version: "1.0.0"
+skill_id: "05_validation_rule_builder"
+skill_class: planning
+
+purpose:
+  one_sentence: Produce exact, typed validation rules for every task in the queue so that 07_validation_runner has no ambiguity about what constitutes pass or fail.
+
+state_gate:
+  required_current_state: TASK_READY
+  allowed_next_states_on_success: [TASK_READY]
+  allowed_next_states_on_failure: [BLOCKED_CONTRACT]
+  allowed_next_states_on_block: [BLOCKED_CONTRACT]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_04_task_queue_v1.json"
+    - "{job_id}_03_execution_contract_v1.json"
+  optional_artifacts: []
+  required_fields:
+    - tasks
+    - success_definition
+  schema_paths:
+    - "superpowers-protocol/schemas/task_queue.schema.json"
+    - "superpowers-protocol/schemas/execution_contract.schema.json"
+  invalid_input_route: BLOCKED_CONTRACT
+
+context_rules:
+  may_infer:
+    - check_type from task_type (write task → file_exists check; command task → command_exit_zero check)
+  must_not_infer:
+    - target artifact paths not in task queue
+    - schema paths not already known
+    - forbidden path boundaries
+  unknown_handling: Do not create a check if the target cannot be fully specified. Route to BLOCKED_CONTRACT.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: usable_now
+  evidence_required: true
+  allowed_repo_trust_levels: [artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: [read_only, unknown]
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_05_validation_rules_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read task queue
+    - read execution contract success_definition
+    - create validation_set per task
+    - assign check_type from allowed enum
+    - assign severity (fatal/repairable/warning)
+    - assign on_fail action (block/repair/warn)
+    - write validation rules artifact
+  forbidden_actions:
+    - create checks without a target
+    - create checks with ambiguous severity
+    - execute any validation
+    - write to any repo file
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: validation_rule_authoring_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_05_validation_rules_v1.json"
+      schema_path: "superpowers-protocol/schemas/validation_rules.schema.json"
+  required_fields:
+    - job_id
+    - validation_sets (one per task, with at least one check each)
+  versioning_rule: create_v1_never_overwrite
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - one_validation_set_per_task
+    - all_checks_have_severity
+    - all_checks_have_on_fail
+  fatal_checks:
+    - invalid_json
+    - check_without_target
+    - check_without_severity
+  repairable_checks:
+    - check_missing_failure_message
+  warning_checks:
+    - all_checks_are_warnings_only
+
+failure_routing:
+  missing_input: BLOCKED_CONTRACT
+  invalid_schema: REPAIR_REQUIRED
+  missing_capability: BLOCKED_CONTRACT
+  forbidden_path: BLOCKED_CONTRACT
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_CONTRACT
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "06_controlled_execution"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_05_validation_rules_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Validation rules artifact exists, every task has a validation set, every check has check_type/severity/on_fail, and artifact validates against schema.
+  partial_condition: Some tasks have validation sets but others are missing.
+  blocked_condition: A task's expected output cannot be described as a checkable condition.

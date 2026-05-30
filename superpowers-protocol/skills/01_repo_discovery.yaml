@@ -1,0 +1,128 @@
+name: Repo Discovery
+version: "1.0.0"
+skill_id: "01_repo_discovery"
+skill_class: discovery
+
+purpose:
+  one_sentence: Read-only scan of all listed repos to produce raw evidence of capabilities, boundaries, commands, and risks without writing to any repo.
+
+state_gate:
+  required_current_state: INTAKE_LOCKED
+  allowed_next_states_on_success: [CAPABILITY_MAPPED]
+  allowed_next_states_on_failure: [BLOCKED_CAPABILITY]
+  allowed_next_states_on_block: [BLOCKED_CAPABILITY]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_00_goal_v1.json"
+    - "{job_id}_01_context_lock_v1.json"
+  optional_artifacts:
+    - repo_list.txt
+  required_fields:
+    - job_id
+    - workflow_type
+  schema_paths:
+    - "superpowers-protocol/schemas/goal.schema.json"
+  invalid_input_route: BLOCKED_CAPABILITY
+
+context_rules:
+  may_infer:
+    - capability type from file extension and naming patterns
+    - safe commands from README, Makefile, package.json scripts
+  must_not_infer:
+    - missing repo permissions
+    - trust level
+    - secret values
+    - business intent
+  unknown_handling: Record as unverified_claims. Do not mark capability usable_now.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: unverified
+  evidence_required: false
+  allowed_repo_trust_levels: [read_only, artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: []
+
+path_rules:
+  allowed_read_paths:
+    - "**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_02_capability_evidence_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - ".env"
+    - "**/*.key"
+    - "**/*.pem"
+    - "**/*.secret"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read files
+    - list directory contents
+    - read README files
+    - read package.json and Makefile scripts
+    - record evidence items
+    - write capability_evidence artifact
+    - update state to CAPABILITY_MAPPED
+  forbidden_actions:
+    - write to any repo file
+    - install dependencies
+    - run commands
+    - modify any file
+    - claim a capability without evidence
+    - read .env or secret files
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: read_only_scan
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_02_capability_evidence_v1.json"
+      schema_path: "superpowers-protocol/schemas/capability_evidence.schema.json"
+  required_fields:
+    - job_id
+    - repo_name
+    - capabilities
+    - unverified_claims
+    - blocked_capabilities
+  versioning_rule: create_v1_never_overwrite
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - no_unresolved_assumption
+  fatal_checks:
+    - invalid_json
+    - missing_capability_evidence
+  repairable_checks:
+    - low_confidence_evidence
+  warning_checks:
+    - unverified_claims_present
+
+failure_routing:
+  missing_input: BLOCKED_CAPABILITY
+  invalid_schema: REPAIR_REQUIRED
+  missing_capability: BLOCKED_CAPABILITY
+  forbidden_path: BLOCKED_EXECUTION
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_CAPABILITY
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "02_capability_evidence"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_02_capability_evidence_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Capability evidence artifact exists, validates against schema, and all capabilities have at least one evidence item with confidence high or medium.
+  partial_condition: Evidence exists but some capabilities have only low confidence or are in unverified_claims.
+  blocked_condition: No repos are readable or all capabilities are unverified.

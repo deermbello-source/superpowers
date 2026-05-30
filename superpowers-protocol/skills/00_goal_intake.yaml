@@ -1,0 +1,134 @@
+name: Goal Intake
+version: "1.0.0"
+skill_id: "00_goal_intake"
+skill_class: intake
+
+purpose:
+  one_sentence: Convert the user request into a locked canonical goal artifact and context lock without executing or designing the solution.
+
+state_gate:
+  required_current_state: DRAFT
+  allowed_next_states_on_success: [INTAKE_LOCKED]
+  allowed_next_states_on_failure: [BLOCKED_INTAKE]
+  allowed_next_states_on_block: [BLOCKED_INTAKE]
+
+input_contract:
+  required_artifacts: []
+  optional_artifacts:
+    - user_context.md
+    - repo_list.txt
+  required_fields:
+    - user_request_original
+  schema_paths: []
+  invalid_input_route: BLOCKED_INTAKE
+
+context_rules:
+  may_infer:
+    - domain from explicit user language
+    - desired output from explicit request
+    - non_goals from explicit corrections or negations in the request
+  must_not_infer:
+    - repo_capability
+    - missing_platform_requirements
+    - monetization_model
+    - deployment_environment
+    - user_approval
+  unknown_handling: List unknowns in the unknowns array. Do not resolve them. If any unknown would block execution, set stop_if_unknown_affects_execution to true.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: none
+  evidence_required: false
+  allowed_repo_trust_levels: []
+  forbidden_repo_trust_levels: []
+
+path_rules:
+  allowed_read_paths: []
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_00_goal_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_01_context_lock_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: workflow_lock
+
+execution_rules:
+  allowed_actions:
+    - parse user request
+    - extract target output
+    - extract known constraints
+    - extract non_goals
+    - list unknowns
+    - write goal artifact
+    - write context lock artifact
+    - update state to INTAKE_LOCKED
+  forbidden_actions:
+    - inspect repos
+    - modify repos
+    - run commands
+    - design architecture
+    - create implementation files
+    - choose tools or approaches
+    - resolve unknowns by assumption
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: goal_and_context_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_00_goal_v1.json"
+      schema_path: "superpowers-protocol/schemas/goal.schema.json"
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_01_context_lock_v1.json"
+      schema_path: "superpowers-protocol/schemas/context_lock.schema.json"
+  required_fields:
+    - job_id
+    - goal_statement
+    - workflow_type
+    - success_criteria
+    - unknowns
+    - non_goals
+    - must_preserve
+    - must_not_create
+    - stop_if_unknown_affects_execution
+  versioning_rule: create_v1_never_overwrite
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - field_required
+    - no_empty_target_output
+  fatal_checks:
+    - invalid_json
+    - missing_target_output
+  repairable_checks:
+    - missing_optional_context
+  warning_checks:
+    - broad_domain
+
+failure_routing:
+  missing_input: BLOCKED_INTAKE
+  invalid_schema: REPAIR_REQUIRED
+  missing_capability: not_applicable
+  forbidden_path: BLOCKED_INTAKE
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_INTAKE
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "01_repo_discovery"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_00_goal_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_01_context_lock_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Goal artifact and context lock exist, validate against their schemas, and state is updated to INTAKE_LOCKED.
+  partial_condition: Goal artifact exists but context lock has unresolved execution-blocking unknowns.
+  blocked_condition: Target output cannot be identified from user request.

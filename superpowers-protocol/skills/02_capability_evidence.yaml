@@ -1,0 +1,116 @@
+name: Capability Evidence
+version: "1.0.0"
+skill_id: "02_capability_evidence"
+skill_class: mapping
+
+purpose:
+  one_sentence: Validate and finalize capability evidence, assign repo trust levels, and produce the trust profile used by all downstream skills.
+
+state_gate:
+  required_current_state: CAPABILITY_MAPPED
+  allowed_next_states_on_success: [CONTRACT_READY]
+  allowed_next_states_on_failure: [BLOCKED_CAPABILITY]
+  allowed_next_states_on_block: [BLOCKED_CAPABILITY]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_02_capability_evidence_v1.json"
+    - "{job_id}_01_context_lock_v1.json"
+  optional_artifacts: []
+  required_fields:
+    - capabilities
+    - unverified_claims
+  schema_paths:
+    - "superpowers-protocol/schemas/capability_evidence.schema.json"
+  invalid_input_route: BLOCKED_CAPABILITY
+
+context_rules:
+  may_infer:
+    - trust level from evidence quality (high/medium evidence → limited_patch; file_exists only → read_only)
+  must_not_infer:
+    - trust level above read_only without evidence
+    - write permissions without evidence of safe_write_paths
+  unknown_handling: Mark capability usable_now as false and move to blocked_capabilities.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: unverified
+  evidence_required: true
+  allowed_repo_trust_levels: [read_only, artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: []
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_02_capability_evidence_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - validate each capability against evidence_items
+    - assign confidence ratings
+    - assign repo trust levels
+    - mark usable_now true or false
+    - move unvalidated capabilities to blocked_capabilities
+    - update state to CONTRACT_READY
+  forbidden_actions:
+    - claim capability without evidence
+    - elevate trust without evidence
+    - write to any repo file
+    - run commands
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: capability_mapping_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_02_capability_evidence_v1.json"
+      schema_path: "superpowers-protocol/schemas/capability_evidence.schema.json"
+  required_fields:
+    - capabilities (all with usable_now and confidence set)
+    - unverified_claims
+    - blocked_capabilities
+  versioning_rule: update_in_place_at_same_version
+
+validation:
+  required_checks:
+    - schema_valid
+    - no_unresolved_assumption
+    - all_capabilities_have_usable_now_set
+  fatal_checks:
+    - invalid_json
+    - capability_without_evidence
+  repairable_checks:
+    - low_confidence_can_be_reclassified
+  warning_checks:
+    - many_blocked_capabilities
+
+failure_routing:
+  missing_input: BLOCKED_CAPABILITY
+  invalid_schema: REPAIR_REQUIRED
+  missing_capability: BLOCKED_CAPABILITY
+  forbidden_path: BLOCKED_EXECUTION
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_CAPABILITY
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "03_contract_builder"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_02_capability_evidence_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: All capabilities have usable_now and confidence set; no capability lacks evidence; trust levels assigned; state is CONTRACT_READY.
+  partial_condition: Some capabilities validated but others remain in unverified_claims.
+  blocked_condition: Required capability cannot be evidenced at any trust level.

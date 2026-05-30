@@ -1,0 +1,136 @@
+name: Contract Builder
+version: "1.0.0"
+skill_id: "03_contract_builder"
+skill_class: planning
+
+purpose:
+  one_sentence: Produce the execution contract that authorizes the complete boundary of what may happen in this job — nothing outside this contract is permitted.
+
+state_gate:
+  required_current_state: CONTRACT_READY
+  allowed_next_states_on_success: [TASK_READY]
+  allowed_next_states_on_failure: [BLOCKED_CONTRACT]
+  allowed_next_states_on_block: [BLOCKED_CONTRACT]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_00_goal_v1.json"
+    - "{job_id}_01_context_lock_v1.json"
+    - "{job_id}_02_capability_evidence_v1.json"
+  optional_artifacts: []
+  required_fields:
+    - job_id
+    - workflow_type
+    - capabilities (usable_now true entries only)
+  schema_paths:
+    - "superpowers-protocol/schemas/goal.schema.json"
+    - "superpowers-protocol/schemas/capability_evidence.schema.json"
+  invalid_input_route: BLOCKED_CONTRACT
+
+context_rules:
+  may_infer:
+    - write paths from usable capability safe_write_paths
+    - allowed commands from usable capability safe_commands
+  must_not_infer:
+    - missing write permissions
+    - forbidden paths not already listed in context_lock or capability evidence
+    - trust level of unlisted repos
+  unknown_handling: If any unknown would affect execution boundaries, route to BLOCKED_CONTRACT.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: usable_now
+  evidence_required: true
+  allowed_repo_trust_levels: [artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: [read_only, unknown]
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_03_execution_contract_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read goal and context lock
+    - read capability evidence
+    - list authorized repos from usable capabilities
+    - define allowed_write_paths per repo
+    - define forbidden_write_paths per repo
+    - define allowed and forbidden commands per repo
+    - set execution_mode to plan_only
+    - set fallback_policy.fallbacks_allowed to false
+    - define success_definition
+    - write execution contract
+    - update state to TASK_READY
+  forbidden_actions:
+    - execute anything
+    - write to any repo file
+    - elevate trust above capability evidence level
+    - add capabilities not in evidence
+    - set execution_mode to live_write directly
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: contract_authoring_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_03_execution_contract_v1.json"
+      schema_path: "superpowers-protocol/schemas/execution_contract.schema.json"
+  required_fields:
+    - job_id
+    - contract_id
+    - authorized_repos
+    - authorized_artifacts
+    - global_forbidden_actions
+    - success_definition
+    - failure_routing
+    - fallback_policy
+    - execution_mode
+  versioning_rule: create_v1_never_overwrite
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - no_usable_capability_missing
+    - fallback_policy_set_to_false
+    - execution_mode_is_plan_only
+  fatal_checks:
+    - invalid_json
+    - missing_authorized_repos
+    - fallbacks_allowed_true
+  repairable_checks:
+    - missing_optional_metadata
+  warning_checks:
+    - many_forbidden_actions
+
+failure_routing:
+  missing_input: BLOCKED_CONTRACT
+  invalid_schema: REPAIR_REQUIRED
+  missing_capability: BLOCKED_CONTRACT
+  forbidden_path: BLOCKED_CONTRACT
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_CONTRACT
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "04_task_queue_builder"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_03_execution_contract_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Execution contract exists, validates against schema, execution_mode is plan_only, fallback_policy.fallbacks_allowed is false, and state is TASK_READY.
+  partial_condition: Contract drafted but some authorized repos lack write path definitions.
+  blocked_condition: Required capabilities are not usable or write permissions cannot be determined from evidence.

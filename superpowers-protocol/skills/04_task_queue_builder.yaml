@@ -1,0 +1,128 @@
+name: Task Queue Builder
+version: "1.0.0"
+skill_id: "04_task_queue_builder"
+skill_class: planning
+
+purpose:
+  one_sentence: Decompose the execution contract into an ordered queue of atomic, bounded tasks each with deterministic IDs, preconditions, and postconditions.
+
+state_gate:
+  required_current_state: TASK_READY
+  allowed_next_states_on_success: [TASK_READY]
+  allowed_next_states_on_failure: [BLOCKED_CONTRACT]
+  allowed_next_states_on_block: [BLOCKED_CONTRACT]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_03_execution_contract_v1.json"
+  optional_artifacts:
+    - "{job_id}_00_goal_v1.json"
+  required_fields:
+    - job_id
+    - authorized_repos
+    - authorized_artifacts
+    - success_definition
+  schema_paths:
+    - "superpowers-protocol/schemas/execution_contract.schema.json"
+  invalid_input_route: BLOCKED_CONTRACT
+
+context_rules:
+  may_infer:
+    - task ordering from data dependencies (which artifact feeds which step)
+  must_not_infer:
+    - missing preconditions
+    - missing postconditions
+    - write paths not in contract
+    - commands not in contract
+  unknown_handling: If a step cannot be fully specified, do not add it. Route to BLOCKED_CONTRACT.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: usable_now
+  evidence_required: true
+  allowed_repo_trust_levels: [artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: [read_only, unknown]
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_04_task_queue_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read execution contract
+    - generate task IDs as {job_id}_{step_number_zero_padded_two_digits}
+    - define preconditions for each task
+    - define action_spec with exact_instructions
+    - define expected_outputs for each task
+    - define postconditions for each task
+    - set next_on_success, next_on_failure, next_on_blocked routing
+    - write task queue artifact
+  forbidden_actions:
+    - execute any task
+    - write to any repo file
+    - use random or non-deterministic task IDs
+    - create tasks with empty preconditions
+    - create tasks with empty postconditions
+    - create tasks that reference paths outside the contract
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: task_decomposition_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_04_task_queue_v1.json"
+      schema_path: "superpowers-protocol/schemas/task_queue.schema.json"
+  required_fields:
+    - job_id
+    - tasks (all with preconditions and postconditions populated)
+  versioning_rule: create_v1_never_overwrite
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - all_tasks_have_preconditions
+    - all_tasks_have_postconditions
+    - all_task_ids_are_deterministic
+    - all_write_paths_within_contract
+  fatal_checks:
+    - invalid_json
+    - task_without_precondition
+    - task_without_postcondition
+    - write_path_outside_contract
+  repairable_checks:
+    - missing_optional_task_fields
+  warning_checks:
+    - many_tasks_in_queue
+
+failure_routing:
+  missing_input: BLOCKED_CONTRACT
+  invalid_schema: REPAIR_REQUIRED
+  missing_capability: BLOCKED_CONTRACT
+  forbidden_path: BLOCKED_CONTRACT
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_CONTRACT
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "05_validation_rule_builder"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_04_task_queue_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Task queue exists, all tasks have preconditions and postconditions, all task IDs follow the naming pattern, and all write paths are within the contract.
+  partial_condition: Task queue exists but some tasks lack preconditions or postconditions.
+  blocked_condition: A required task cannot be fully specified from the contract.
