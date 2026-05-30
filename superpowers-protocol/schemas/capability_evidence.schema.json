@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/capability_evidence.schema.json",
+  "title": "CapabilityEvidence",
+  "description": "Evidence that a repo capability exists and is safe to use. Produced by 01_repo_discovery and validated by 02_capability_evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "repo_name",
+    "repo_scan_scope",
+    "capabilities",
+    "unverified_claims",
+    "blocked_capabilities"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "repo_name": {"type": "string"},
+    "repo_scan_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["included_paths", "excluded_paths", "read_only"],
+      "properties": {
+        "included_paths": {"type": "array", "items": {"type": "string"}},
+        "excluded_paths": {"type": "array", "items": {"type": "string"}},
+        "read_only": {"type": "boolean"}
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "capability_id",
+          "capability_name",
+          "capability_type",
+          "evidence_items",
+          "confidence",
+          "usable_now"
+        ],
+        "properties": {
+          "capability_id": {"type": "string"},
+          "capability_name": {"type": "string"},
+          "capability_type": {"type": "string"},
+          "evidence_items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["evidence_type", "path", "observed_value", "why_it_supports_capability"],
+              "properties": {
+                "evidence_type": {
+                  "type": "string",
+                  "enum": [
+                    "file_exists",
+                    "readme",
+                    "package_script",
+                    "exported_function",
+                    "cli_command",
+                    "test_file",
+                    "schema",
+                    "config",
+                    "folder_pattern"
+                  ]
+                },
+                "path": {"type": "string"},
+                "line_or_key": {"type": "string"},
+                "observed_value": {"type": "string"},
+                "why_it_supports_capability": {"type": "string"}
+              }
+            }
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "usable_now": {
+            "type": "boolean",
+            "description": "Must be true before this capability can be used in an execution contract."
+          },
+          "reason_not_usable": {"type": "string"},
+          "required_inputs": {"type": "array", "items": {"type": "string"}},
+          "expected_outputs": {"type": "array", "items": {"type": "string"}},
+          "safe_commands": {"type": "array", "items": {"type": "string"}},
+          "unsafe_commands": {"type": "array", "items": {"type": "string"}},
+          "safe_write_paths": {"type": "array", "items": {"type": "string"}},
+          "protected_paths": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "unverified_claims": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Capability claims that could not be evidenced. Must not be used in contracts."
+    },
+    "blocked_capabilities": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Capabilities explicitly blocked due to trust level or forbidden paths."
+    }
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/goal.schema.json",
+  "title": "Goal",
+  "description": "The canonical job descriptor. First artifact produced by 00_goal_intake.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "goal_statement",
+    "workflow_type",
+    "submitter",
+    "submitted_at",
+    "scope_boundaries",
+    "success_criteria",
+    "non_goals",
+    "known_constraints",
+    "unknowns",
+    "must_preserve",
+    "must_not_create",
+    "must_not_modify",
+    "stop_if_unknown_affects_execution"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{4,}",
+      "description": "Unique job identifier. Used as prefix in all artifact names."
+    },
+    "goal_statement": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Single-sentence statement of the desired outcome."
+    },
+    "workflow_type": {
+      "type": "string",
+      "enum": [
+        "repo_assimilation",
+        "feature_build",
+        "bug_fix",
+        "schema_change",
+        "dependency_change",
+        "documentation",
+        "uv_texture_asset",
+        "reference_to_blender"
+      ]
+    },
+    "submitter": {
+      "type": "string",
+      "description": "Identity of the person or system submitting this job."
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["in_scope", "out_of_scope"],
+      "properties": {
+        "in_scope": {"type": "array", "items": {"type": "string"}},
+        "out_of_scope": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "success_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string"},
+      "description": "Testable conditions that define done."
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "known_constraints": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Things not yet known. Do not resolve; list and route to HUMAN_REVIEW if execution-blocking."
+    },
+    "must_preserve": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Files, behaviors, or contracts that must not change."
+    },
+    "must_not_create": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "must_not_modify": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "stop_if_unknown_affects_execution": {
+      "type": "boolean",
+      "description": "If true, any unknown that would affect execution routes to BLOCKED_CONTRACT."
+    }
+  }
+}

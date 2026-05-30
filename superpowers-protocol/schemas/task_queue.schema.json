@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/task_queue.schema.json",
+  "title": "TaskQueue",
+  "description": "Ordered list of atomic tasks. Each task is a transaction with preconditions, action, and postconditions. Produced by 04_task_queue_builder.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "tasks"],
+  "properties": {
+    "job_id": {"type": "string"},
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "step_number",
+          "task_type",
+          "title",
+          "state",
+          "capability_id",
+          "preconditions",
+          "input_artifacts",
+          "allowed_read_paths",
+          "allowed_write_paths",
+          "forbidden_paths",
+          "allowed_commands",
+          "forbidden_commands",
+          "action_spec",
+          "expected_outputs",
+          "postconditions",
+          "rollback_notes_required",
+          "next_on_success",
+          "next_on_failure",
+          "next_on_blocked"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "Deterministic ID: {job_id}_{step_number_zero_padded}"
+          },
+          "step_number": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "task_type": {
+            "type": "string",
+            "enum": ["read", "write", "transform", "generate", "validate", "repair", "document", "export"]
+          },
+          "title": {"type": "string"},
+          "state": {
+            "type": "string",
+            "enum": ["pending", "running", "complete", "failed", "blocked"]
+          },
+          "capability_id": {"type": "string"},
+          "repo_name": {"type": "string"},
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["condition", "check_method", "required", "on_fail"],
+              "properties": {
+                "condition": {"type": "string"},
+                "check_method": {
+                  "type": "string",
+                  "enum": [
+                    "file_exists", "folder_exists", "json_valid", "schema_valid",
+                    "command_available", "path_allowed", "artifact_exists", "manual"
+                  ]
+                },
+                "required": {"type": "boolean"},
+                "on_fail": {"type": "string", "enum": ["block", "warn", "skip"]}
+              }
+            }
+          },
+          "input_artifacts": {"type": "array", "items": {"type": "string"}},
+          "allowed_read_paths": {"type": "array", "items": {"type": "string"}},
+          "allowed_write_paths": {"type": "array", "items": {"type": "string"}},
+          "forbidden_paths": {"type": "array", "items": {"type": "string"}},
+          "allowed_commands": {"type": "array", "items": {"type": "string"}},
+          "forbidden_commands": {"type": "array", "items": {"type": "string"}},
+          "action_spec": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operation", "exact_instructions", "do_not_infer"],
+            "properties": {
+              "operation": {"type": "string"},
+              "exact_instructions": {"type": "array", "items": {"type": "string"}},
+              "parameters": {"type": "object"},
+              "do_not_infer": {"type": "boolean"}
+            }
+          },
+          "expected_outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "type", "required"],
+              "properties": {
+                "path": {"type": "string"},
+                "type": {"type": "string", "enum": ["json", "yaml", "markdown", "code", "image", "log", "folder"]},
+                "schema": {"type": "string"},
+                "required": {"type": "boolean"}
+              }
+            }
+          },
+          "postconditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["condition", "check_method", "required", "on_fail"],
+              "properties": {
+                "condition": {"type": "string"},
+                "check_method": {"type": "string"},
+                "required": {"type": "boolean"},
+                "on_fail": {"type": "string", "enum": ["validate_fail", "block", "warn"]}
+              }
+            }
+          },
+          "rollback_notes_required": {"type": "boolean"},
+          "next_on_success": {"type": "string"},
+          "next_on_failure": {"type": "string"},
+          "next_on_blocked": {"type": "string"}
+        }
+      }
+    }
+  }
+}

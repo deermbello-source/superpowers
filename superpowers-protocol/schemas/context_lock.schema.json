@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/context_lock.schema.json",
+  "title": "ContextLock",
+  "description": "Freezes what is known, unknown, allowed, and forbidden before any skill runs. Produced alongside the goal by 00_goal_intake.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "locked_at",
+    "user_request_original",
+    "user_request_interpreted",
+    "domain",
+    "target_output",
+    "assumptions_allowed",
+    "forbidden_assumption_types",
+    "must_preserve",
+    "must_not_create",
+    "must_not_modify",
+    "stop_if_unknown_affects_execution"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "locked_at": {"type": "string", "format": "date-time"},
+    "user_request_original": {
+      "type": "string",
+      "description": "Verbatim user request, unmodified."
+    },
+    "user_request_interpreted": {
+      "type": "string",
+      "description": "Interpretation of user request. Must not add information not in original."
+    },
+    "domain": {"type": "string"},
+    "target_output": {
+      "type": "string",
+      "minLength": 5,
+      "description": "Concrete, testable description of what must exist when done."
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "known_constraints": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "assumptions_allowed": {
+      "type": "boolean",
+      "description": "Default false. If false, any assumption routes to BLOCKED_CONTRACT."
+    },
+    "allowed_assumption_types": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "forbidden_assumption_types": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "repo_capability",
+          "user_intent",
+          "file_permission",
+          "runtime_environment",
+          "dependency_availability",
+          "business_purpose",
+          "security_boundary"
+        ]
+      }
+    },
+    "protected_terms": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Domain terms that must not be renamed or reinterpreted."
+    },
+    "must_preserve": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "must_not_create": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "must_not_modify": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "stop_if_unknown_affects_execution": {
+      "type": "boolean"
+    }
+  }
+}

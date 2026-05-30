@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/validation_rules.schema.json",
+  "title": "ValidationRules",
+  "description": "Exact validation rules applied by 07_validation_runner. Rules must reference real artifact paths from the task queue.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "validation_sets"],
+  "properties": {
+    "job_id": {"type": "string"},
+    "validation_sets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["validation_id", "applies_to_task", "checks"],
+        "properties": {
+          "validation_id": {"type": "string"},
+          "applies_to_task": {"type": "string"},
+          "checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["check_id", "check_name", "check_type", "severity", "on_fail"],
+              "properties": {
+                "check_id": {"type": "string"},
+                "check_name": {"type": "string"},
+                "check_type": {
+                  "type": "string",
+                  "enum": [
+                    "file_exists",
+                    "folder_exists",
+                    "json_valid",
+                    "yaml_valid",
+                    "schema_valid",
+                    "field_required",
+                    "enum_valid",
+                    "path_boundary",
+                    "diff_boundary",
+                    "command_exit_zero",
+                    "test_pass",
+                    "build_pass",
+                    "no_forbidden_tokens",
+                    "no_unapproved_dependency",
+                    "no_unresolved_assumption",
+                    "artifact_handoff_valid",
+                    "receipt_complete"
+                  ]
+                },
+                "target": {"type": "string"},
+                "expected": {},
+                "schema_path": {"type": "string"},
+                "allowed_paths": {"type": "array", "items": {"type": "string"}},
+                "forbidden_paths": {"type": "array", "items": {"type": "string"}},
+                "severity": {
+                  "type": "string",
+                  "enum": ["fatal", "repairable", "warning"]
+                },
+                "on_fail": {
+                  "type": "string",
+                  "enum": ["block", "repair", "warn"]
+                },
+                "failure_message": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

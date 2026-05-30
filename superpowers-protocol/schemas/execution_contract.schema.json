@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/execution_contract.schema.json",
+  "title": "ExecutionContract",
+  "description": "Authorizes the boundary of everything that may happen in this job. Nothing outside this contract is permitted. Produced by 03_contract_builder.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "contract_id",
+    "goal_id",
+    "contract_status",
+    "contracted_at",
+    "authorized_repos",
+    "authorized_artifacts",
+    "global_forbidden_actions",
+    "success_definition",
+    "failure_routing",
+    "fallback_policy",
+    "execution_mode"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "contract_id": {"type": "string"},
+    "goal_id": {"type": "string"},
+    "contract_status": {
+      "type": "string",
+      "enum": ["draft", "ready", "blocked"]
+    },
+    "contracted_at": {"type": "string", "format": "date-time"},
+    "authorized_repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repo_name", "trust_level", "write_permission", "allowed_write_paths", "forbidden_write_paths", "allowed_commands", "forbidden_commands"],
+        "properties": {
+          "repo_name": {"type": "string"},
+          "repo_path": {"type": "string"},
+          "trust_level": {
+            "type": "string",
+            "enum": ["read_only", "artifact_write", "limited_patch", "trusted_patch"]
+          },
+          "authorized_capability_ids": {"type": "array", "items": {"type": "string"}},
+          "write_permission": {
+            "type": "string",
+            "enum": ["none", "artifact_only", "limited_paths", "repo_patch"]
+          },
+          "allowed_write_paths": {"type": "array", "items": {"type": "string"}},
+          "forbidden_write_paths": {"type": "array", "items": {"type": "string"}},
+          "allowed_commands": {"type": "array", "items": {"type": "string"}},
+          "forbidden_commands": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "authorized_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_name", "artifact_path", "artifact_schema", "producer_skill", "consumer_skill"],
+        "properties": {
+          "artifact_name": {"type": "string"},
+          "artifact_path": {"type": "string"},
+          "artifact_schema": {"type": "string"},
+          "producer_skill": {"type": "string"},
+          "consumer_skill": {"type": "string"}
+        }
+      }
+    },
+    "global_forbidden_actions": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Actions forbidden across all tasks in this job, regardless of task-level rules."
+    },
+    "success_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_outputs", "required_validations", "required_receipts"],
+      "properties": {
+        "required_outputs": {"type": "array", "items": {"type": "string"}},
+        "required_validations": {"type": "array", "items": {"type": "string"}},
+        "required_receipts": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "failure_routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["missing_input", "missing_capability", "forbidden_write_required", "validation_failed", "repair_exceeds_scope"],
+      "properties": {
+        "missing_input": {"type": "string"},
+        "missing_capability": {"type": "string"},
+        "forbidden_write_required": {"type": "string"},
+        "validation_failed": {"type": "string"},
+        "repair_exceeds_scope": {"type": "string"}
+      }
+    },
+    "fallback_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fallbacks_allowed", "on_unapproved_fallback_needed"],
+      "properties": {
+        "fallbacks_allowed": {"type": "boolean"},
+        "approved_fallbacks": {"type": "array", "items": {"type": "string"}},
+        "on_unapproved_fallback_needed": {"type": "string"}
+      }
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": ["plan_only", "dry_run", "live_write"],
+      "description": "Write workflows must start in plan_only and explicitly progress to live_write."
+    }
+  }
+}
