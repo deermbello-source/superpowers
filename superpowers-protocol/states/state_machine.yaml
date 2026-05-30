@@ -1,0 +1,136 @@
+# Superpowers Protocol — Canonical State Machine
+# Every skill's state_gate and every workflow's state_sequence[] must reference these state names.
+
+forward_states:
+  DRAFT:
+    description: Job packet created; no skill has run yet.
+    allowed_next_on_success: [INTAKE_LOCKED]
+    allowed_next_on_failure: [BLOCKED_INTAKE]
+    allowed_next_on_block: [BLOCKED_INTAKE]
+    terminal: false
+
+  INTAKE_LOCKED:
+    description: Goal artifact and context lock produced and validated.
+    allowed_next_on_success: [CAPABILITY_MAPPED]
+    allowed_next_on_failure: [BLOCKED_INTAKE]
+    allowed_next_on_block: [BLOCKED_INTAKE]
+    terminal: false
+
+  CAPABILITY_MAPPED:
+    description: Repo discovery complete; capability evidence artifacts produced.
+    allowed_next_on_success: [CONTRACT_READY]
+    allowed_next_on_failure: [BLOCKED_CAPABILITY]
+    allowed_next_on_block: [BLOCKED_CAPABILITY]
+    terminal: false
+
+  CONTRACT_READY:
+    description: Execution contract produced and authorized.
+    allowed_next_on_success: [TASK_READY]
+    allowed_next_on_failure: [BLOCKED_CONTRACT]
+    allowed_next_on_block: [BLOCKED_CONTRACT]
+    terminal: false
+
+  TASK_READY:
+    description: Task queue and validation rules produced; ready to execute.
+    allowed_next_on_success: [EXECUTING]
+    allowed_next_on_failure: [BLOCKED_CONTRACT]
+    allowed_next_on_block: [BLOCKED_CONTRACT]
+    terminal: false
+
+  EXECUTING:
+    description: Controlled execution skill is actively running a task.
+    allowed_next_on_success: [VALIDATING]
+    allowed_next_on_failure: [REPAIR_REQUIRED]
+    allowed_next_on_block: [BLOCKED_EXECUTION]
+    terminal: false
+
+  VALIDATING:
+    description: Validation runner is evaluating execution results.
+    allowed_next_on_success: [VALIDATED]
+    allowed_next_on_failure: [REPAIR_REQUIRED]
+    allowed_next_on_block: [BLOCKED_VALIDATION]
+    terminal: false
+
+  REPAIR_REQUIRED:
+    description: Validation found repairable failures; repair planner must run.
+    allowed_next_on_success: [REPAIRING]
+    allowed_next_on_failure: [BLOCKED_REPAIR]
+    allowed_next_on_block: [HUMAN_REVIEW]
+    terminal: false
+
+  REPAIRING:
+    description: Repair task is executing; returns to EXECUTING when complete.
+    allowed_next_on_success: [EXECUTING]
+    allowed_next_on_failure: [BLOCKED_REPAIR]
+    allowed_next_on_block: [HUMAN_REVIEW]
+    terminal: false
+
+  VALIDATED:
+    description: All validation checks passed; receipt and promotion gate can run.
+    allowed_next_on_success: [PROMOTED]
+    allowed_next_on_failure: [REPAIR_REQUIRED]
+    allowed_next_on_block: [HUMAN_REVIEW]
+    terminal: false
+
+  PROMOTED:
+    description: Promotion gate passed (human approved); receipts being written.
+    allowed_next_on_success: [RECEIPTED]
+    allowed_next_on_failure: [VALIDATED]
+    allowed_next_on_block: [HUMAN_REVIEW]
+    terminal: false
+
+  RECEIPTED:
+    description: All receipts written; job is complete.
+    allowed_next_on_success: []
+    allowed_next_on_failure: []
+    allowed_next_on_block: []
+    terminal: true
+
+blocked_states:
+  BLOCKED_INTAKE:
+    description: Goal or context lock could not be produced from user input.
+    resumable: true
+    resume_action: Clarify or correct user input and re-run 00_goal_intake.
+    terminal: false
+
+  BLOCKED_CAPABILITY:
+    description: Required capability lacks evidence or has insufficient trust level.
+    resumable: true
+    resume_action: Run repo assimilation or request trust elevation before re-running 02_capability_evidence.
+    terminal: false
+
+  BLOCKED_CONTRACT:
+    description: Execution contract cannot be built from available capabilities and constraints.
+    resumable: true
+    resume_action: Resolve missing inputs, permissions, or dependencies, then re-run 03_contract_builder.
+    terminal: false
+
+  BLOCKED_EXECUTION:
+    description: Execution attempted a forbidden path, command, or silent fallback.
+    resumable: false
+    resume_action: Requires human review and explicit contract amendment before resuming.
+    terminal: false
+
+  BLOCKED_VALIDATION:
+    description: Validation produced fatal failures that cannot be repaired.
+    resumable: false
+    resume_action: Requires human review; do not attempt auto-repair of fatal failures.
+    terminal: false
+
+  BLOCKED_REPAIR:
+    description: Repair exceeded max_attempts or attempted actions outside original contract scope.
+    resumable: false
+    resume_action: Escalate to human; repair scope must be manually redefined.
+    terminal: false
+
+  HUMAN_REVIEW:
+    description: An unknown, a choice, or an out-of-scope condition requires human decision.
+    resumable: true
+    resume_action: Human resolves the decision and restarts from the last valid state.
+    terminal: true
+
+# Transition law:
+# A skill MUST declare state_gate.required_current_state from forward_states.
+# A skill MUST only transition to states listed in allowed_next_on_success/failure/block.
+# A skill MUST NOT skip states.
+# A skill MUST NOT self-transition (required_current_state == any allowed_next state).

@@ -1,0 +1,138 @@
+# Superpowers Protocol — Failure Routing Table
+# Maps failure class → blocked state → required response.
+# Every skill's failure_routing section must reference failure classes from this table.
+
+failure_routes:
+
+  missing_required_input:
+    route_to: BLOCKED_INTAKE
+    allowed_response: "Write blocked report. List the missing inputs. Do not continue."
+    auto_repairable: false
+    escalate_to_human: false
+
+  invalid_json:
+    route_to: REPAIR_REQUIRED
+    allowed_response: "Create repair task limited to JSON syntax correction only."
+    auto_repairable: true
+    repair_skill: "08_repair_planner"
+
+  schema_invalid:
+    route_to: REPAIR_REQUIRED
+    allowed_response: "Create repair task limited to missing or invalid fields only."
+    auto_repairable: true
+    repair_skill: "08_repair_planner"
+
+  required_field_missing:
+    route_to: REPAIR_REQUIRED
+    allowed_response: "Create repair task to populate the missing required field."
+    auto_repairable: true
+    repair_skill: "08_repair_planner"
+
+  forbidden_file_modified:
+    route_to: BLOCKED_EXECUTION
+    allowed_response: "Stop immediately. Report the forbidden file that was modified. Do not self-repair."
+    auto_repairable: false
+    escalate_to_human: true
+
+  write_outside_contract:
+    route_to: BLOCKED_EXECUTION
+    allowed_response: "Stop. The write path is not in allowed_write_paths. Do not self-repair."
+    auto_repairable: false
+    escalate_to_human: true
+
+  unapproved_dependency_needed:
+    route_to: BLOCKED_CONTRACT
+    allowed_response: "Stop. Request dependency approval via Dependency Change Protocol."
+    auto_repairable: false
+    escalate_to_human: true
+
+  unapproved_fallback_attempted:
+    route_to: BLOCKED_EXECUTION
+    allowed_response: "Stop. The method failed and no approved fallback is listed in the contract."
+    auto_repairable: false
+    escalate_to_human: true
+
+  capability_not_evidenced:
+    route_to: BLOCKED_CAPABILITY
+    allowed_response: "Stop. Do not invent or assume a capability. Run repo assimilation first."
+    auto_repairable: false
+    escalate_to_human: false
+
+  repo_trust_insufficient:
+    route_to: BLOCKED_CAPABILITY
+    allowed_response: "Stop. The repo trust level does not permit this operation."
+    auto_repairable: false
+    escalate_to_human: true
+
+  test_failed:
+    route_to: REPAIR_REQUIRED
+    allowed_response: "Create repair task scoped only to the failing test. Do not refactor."
+    auto_repairable: true
+    repair_skill: "08_repair_planner"
+
+  build_failed:
+    route_to: REPAIR_REQUIRED
+    allowed_response: "Create repair task scoped only to the build error."
+    auto_repairable: true
+    repair_skill: "08_repair_planner"
+
+  architecture_change_needed:
+    route_to: BLOCKED_CONTRACT
+    allowed_response: "Stop. The existing contract is insufficient. A new contract is required."
+    auto_repairable: false
+    escalate_to_human: true
+
+  schema_change_needed:
+    route_to: BLOCKED_CONTRACT
+    allowed_response: "Stop. A schema change is required. Run Schema Change Protocol."
+    auto_repairable: false
+    escalate_to_human: true
+
+  human_choice_needed:
+    route_to: HUMAN_REVIEW
+    allowed_response: "List the available choices with their consequences. Do not choose. Wait."
+    auto_repairable: false
+    escalate_to_human: true
+
+  unresolved_assumption:
+    route_to: BLOCKED_CONTRACT
+    allowed_response: "Stop. List the assumption. Do not resolve it. Request clarification."
+    auto_repairable: false
+    escalate_to_human: true
+
+  repair_limit_exceeded:
+    route_to: BLOCKED_REPAIR
+    allowed_response: "Stop. max_attempts reached. Escalate to human with full repair history."
+    auto_repairable: false
+    escalate_to_human: true
+
+  artifact_overwrite_attempted:
+    route_to: BLOCKED_EXECUTION
+    allowed_response: "Stop. Artifacts are immutable. Create a new versioned artifact instead."
+    auto_repairable: false
+    escalate_to_human: true
+
+  receipt_tamper_attempted:
+    route_to: BLOCKED_EXECUTION
+    allowed_response: "Stop. Receipts are append-only. Create an amendment receipt instead."
+    auto_repairable: false
+    escalate_to_human: true
+
+  handoff_invalid:
+    route_to: BLOCKED_EXECUTION
+    allowed_response: "Stop. The producing skill must be re-run; its output does not satisfy the consuming skill's input contract."
+    auto_repairable: false
+    escalate_to_human: false
+
+  state_transition_forbidden:
+    route_to: BLOCKED_EXECUTION
+    allowed_response: "Stop. The attempted state transition is not in allowed_next states for the current state."
+    auto_repairable: false
+    escalate_to_human: true
+
+# Lock conflict rules
+lock_conflict_rules:
+  - "A file cannot be modified by two active tasks simultaneously."
+  - "A schema file cannot be changed while tasks depending on it are EXECUTING."
+  - "A receipt cannot be edited after finalization; issue an amendment receipt."
+  - "A promoted artifact cannot be overwritten; create a new versioned artifact."
