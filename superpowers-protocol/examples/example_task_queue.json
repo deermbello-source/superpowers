@@ -1,0 +1,203 @@
+{
+  "job_id": "job_0001",
+  "tasks": [
+    {
+      "task_id": "job_0001_01",
+      "step_number": 1,
+      "task_type": "write",
+      "title": "Create task_search.go handler",
+      "state": "pending",
+      "capability_id": "cap_001",
+      "repo_name": "multica",
+      "preconditions": [
+        {
+          "condition": "server/handlers/ directory exists",
+          "check_method": "folder_exists",
+          "required": true,
+          "on_fail": "block"
+        },
+        {
+          "condition": "go.mod exists at repo root",
+          "check_method": "file_exists",
+          "required": true,
+          "on_fail": "block"
+        }
+      ],
+      "input_artifacts": [
+        "superpowers-protocol/job_packets/job_0001/job_0001_03_execution_contract_v1.json"
+      ],
+      "allowed_read_paths": [
+        "server/handlers/",
+        "server/types/",
+        "server/middleware/"
+      ],
+      "allowed_write_paths": [
+        "server/handlers/task_search.go"
+      ],
+      "forbidden_paths": [
+        ".env",
+        "database/migrations/",
+        "go.mod",
+        "go.sum"
+      ],
+      "allowed_commands": [],
+      "forbidden_commands": ["rm -rf", "git push", "go get"],
+      "action_spec": {
+        "operation": "Create a Go HTTP handler for GET /api/tasks/search?q= using the existing Chi router and sqlc patterns.",
+        "exact_instructions": [
+          "Read existing handler files in server/handlers/ to learn naming conventions.",
+          "Create server/handlers/task_search.go with a SearchTasksHandler function.",
+          "Use the existing auth middleware pattern for workspace-scoped queries.",
+          "Return 400 if q parameter is missing or empty.",
+          "Return 401 if authentication fails via existing middleware."
+        ],
+        "parameters": {
+          "package": "handlers",
+          "function_name": "SearchTasksHandler"
+        },
+        "do_not_infer": true
+      },
+      "expected_outputs": [
+        {
+          "path": "server/handlers/task_search.go",
+          "type": "code",
+          "required": true
+        }
+      ],
+      "postconditions": [
+        {
+          "condition": "server/handlers/task_search.go exists",
+          "check_method": "file_exists",
+          "required": true,
+          "on_fail": "validate_fail"
+        }
+      ],
+      "rollback_notes_required": true,
+      "next_on_success": "job_0001_02",
+      "next_on_failure": "REPAIR_REQUIRED",
+      "next_on_blocked": "BLOCKED_EXECUTION"
+    },
+    {
+      "task_id": "job_0001_02",
+      "step_number": 2,
+      "task_type": "write",
+      "title": "Create task_search_test.go unit tests",
+      "state": "pending",
+      "capability_id": "cap_002",
+      "repo_name": "multica",
+      "preconditions": [
+        {
+          "condition": "server/handlers/task_search.go exists from step 1",
+          "check_method": "file_exists",
+          "required": true,
+          "on_fail": "block"
+        }
+      ],
+      "input_artifacts": [
+        "superpowers-protocol/job_packets/job_0001/results/job_0001_06_execution_result_job_0001_01_v1.json"
+      ],
+      "allowed_read_paths": [
+        "server/handlers/"
+      ],
+      "allowed_write_paths": [
+        "server/handlers/task_search_test.go"
+      ],
+      "forbidden_paths": [
+        ".env",
+        "database/migrations/",
+        "go.mod",
+        "go.sum"
+      ],
+      "allowed_commands": [
+        "go test ./server/handlers/..."
+      ],
+      "forbidden_commands": ["rm -rf", "git push", "go get"],
+      "action_spec": {
+        "operation": "Create unit tests for SearchTasksHandler covering the 200, 400, and 401 cases.",
+        "exact_instructions": [
+          "Read server/handlers/task_search.go to understand the handler signature.",
+          "Create server/handlers/task_search_test.go with table-driven tests.",
+          "Test: missing q returns 400.",
+          "Test: unauthenticated request returns 401.",
+          "Test: valid q returns 200 with task list."
+        ],
+        "parameters": {},
+        "do_not_infer": true
+      },
+      "expected_outputs": [
+        {
+          "path": "server/handlers/task_search_test.go",
+          "type": "code",
+          "required": true
+        }
+      ],
+      "postconditions": [
+        {
+          "condition": "server/handlers/task_search_test.go exists",
+          "check_method": "file_exists",
+          "required": true,
+          "on_fail": "validate_fail"
+        },
+        {
+          "condition": "go test ./server/handlers/... exits 0",
+          "check_method": "command_exit_zero",
+          "required": true,
+          "on_fail": "validate_fail"
+        }
+      ],
+      "rollback_notes_required": true,
+      "next_on_success": "VALIDATING",
+      "next_on_failure": "REPAIR_REQUIRED",
+      "next_on_blocked": "BLOCKED_EXECUTION"
+    },
+    {
+      "task_id": "job_0001_03",
+      "step_number": 3,
+      "task_type": "validate",
+      "title": "Run Go tests and verify outputs",
+      "state": "pending",
+      "capability_id": "cap_002",
+      "repo_name": "multica",
+      "preconditions": [
+        {
+          "condition": "Both handler and test files exist",
+          "check_method": "file_exists",
+          "required": true,
+          "on_fail": "block"
+        }
+      ],
+      "input_artifacts": [],
+      "allowed_read_paths": ["server/"],
+      "allowed_write_paths": [],
+      "forbidden_paths": [".env", "database/migrations/"],
+      "allowed_commands": [
+        "go test ./server/handlers/...",
+        "go build ./..."
+      ],
+      "forbidden_commands": ["rm -rf", "git push"],
+      "action_spec": {
+        "operation": "Run go test to confirm all tests pass.",
+        "exact_instructions": [
+          "Run: go test ./server/handlers/...",
+          "Verify exit code is 0.",
+          "Record stdout and stderr in execution result."
+        ],
+        "parameters": {},
+        "do_not_infer": true
+      },
+      "expected_outputs": [],
+      "postconditions": [
+        {
+          "condition": "go test exit code is 0",
+          "check_method": "command_exit_zero",
+          "required": true,
+          "on_fail": "validate_fail"
+        }
+      ],
+      "rollback_notes_required": false,
+      "next_on_success": "VALIDATING",
+      "next_on_failure": "REPAIR_REQUIRED",
+      "next_on_blocked": "BLOCKED_EXECUTION"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "job_id": "job_0001",
+  "contract_id": "contract_job_0001_v1",
+  "goal_id": "job_0001_00_goal_v1.json",
+  "contract_status": "ready",
+  "contracted_at": "2026-05-30T00:05:00Z",
+  "authorized_repos": [
+    {
+      "repo_name": "multica",
+      "repo_path": "server/",
+      "trust_level": "limited_patch",
+      "authorized_capability_ids": ["cap_001", "cap_002"],
+      "write_permission": "limited_paths",
+      "allowed_write_paths": [
+        "server/handlers/task_search.go",
+        "server/handlers/task_search_test.go"
+      ],
+      "forbidden_write_paths": [
+        ".env",
+        ".github/",
+        "database/migrations/",
+        "go.sum",
+        "go.mod"
+      ],
+      "allowed_commands": [
+        "go test ./server/handlers/...",
+        "go build ./..."
+      ],
+      "forbidden_commands": [
+        "rm -rf",
+        "git push",
+        "git reset --hard",
+        "go get"
+      ]
+    }
+  ],
+  "authorized_artifacts": [
+    {
+      "artifact_name": "job_0001_06_execution_result_task01_v1.json",
+      "artifact_path": "superpowers-protocol/job_packets/job_0001/results/job_0001_06_execution_result_task01_v1.json",
+      "artifact_schema": "superpowers-protocol/schemas/execution_result.schema.json",
+      "producer_skill": "06_controlled_execution",
+      "consumer_skill": "07_validation_runner"
+    }
+  ],
+  "global_forbidden_actions": [
+    "Do not redesign the architecture.",
+    "Do not modify protected files.",
+    "Do not install dependencies unless explicitly authorized.",
+    "Do not remove validation to make output pass.",
+    "Do not change schemas without a schema-change task.",
+    "Do not create hidden side effects.",
+    "Do not mark success without validation."
+  ],
+  "success_definition": {
+    "required_outputs": [
+      "server/handlers/task_search.go",
+      "server/handlers/task_search_test.go"
+    ],
+    "required_validations": [
+      "go test ./server/handlers/... exits 0"
+    ],
+    "required_receipts": [
+      "job_0001_receipt_v1.json"
+    ]
+  },
+  "failure_routing": {
+    "missing_input": "BLOCKED_CONTRACT",
+    "missing_capability": "BLOCKED_CAPABILITY",
+    "forbidden_write_required": "BLOCKED_CONTRACT",
+    "validation_failed": "REPAIR_REQUIRED",
+    "repair_exceeds_scope": "BLOCKED_REPAIR"
+  },
+  "fallback_policy": {
+    "fallbacks_allowed": false,
+    "approved_fallbacks": [],
+    "on_unapproved_fallback_needed": "BLOCKED_EXECUTION"
+  },
+  "execution_mode": "plan_only"
+}

@@ -1,0 +1,53 @@
+{
+  "job_id": "job_0001",
+  "goal_statement": "Add a server-side search endpoint to the Multica API that queries tasks by keyword.",
+  "workflow_type": "feature_build",
+  "submitter": "deebell44@icloud.com",
+  "submitted_at": "2026-05-30T00:00:00Z",
+  "scope_boundaries": {
+    "in_scope": [
+      "New GET /api/tasks/search?q= endpoint in Go backend",
+      "Search logic scoped to the tasks table only",
+      "Unit tests for the search handler"
+    ],
+    "out_of_scope": [
+      "Frontend search UI",
+      "Full-text search engine (Elasticsearch, etc.)",
+      "Search across other entity types"
+    ]
+  },
+  "success_criteria": [
+    "GET /api/tasks/search?q=keyword returns matching tasks for the authenticated workspace",
+    "Handler returns 400 for missing q parameter",
+    "Handler returns 401 for unauthenticated requests",
+    "Unit tests pass"
+  ],
+  "non_goals": [
+    "Frontend integration",
+    "Search indexing",
+    "Pagination beyond what already exists"
+  ],
+  "known_constraints": [
+    "Must use existing sqlc query patterns",
+    "Must use existing Chi router middleware for auth",
+    "No new dependencies allowed"
+  ],
+  "unknowns": [
+    "Whether case-insensitive search is required"
+  ],
+  "must_preserve": [
+    "Existing task CRUD endpoints",
+    "Existing auth middleware",
+    "database/migrations/ directory"
+  ],
+  "must_not_create": [
+    "New database tables",
+    "New dependencies in go.mod"
+  ],
+  "must_not_modify": [
+    ".github/",
+    ".env",
+    "database/migrations/"
+  ],
+  "stop_if_unknown_affects_execution": true
+}
