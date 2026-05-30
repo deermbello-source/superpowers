@@ -1,0 +1,154 @@
+# Superpowers Closed Workflow Protocol — Root Manifest
+# All paths, versions, and skill IDs are discovered from this file.
+
+protocol_version: "1.0.0"
+schema_draft: "http://json-schema.org/draft-07/schema#"
+
+# Base paths (relative to repo root)
+schema_base_path: "superpowers-protocol/schemas/"
+skills_base_path: "superpowers-protocol/skills/"
+workflows_base_path: "superpowers-protocol/workflows/"
+states_base_path: "superpowers-protocol/states/"
+job_packets_path: "superpowers-protocol/job_packets/"
+receipts_path: "superpowers-protocol/receipts/"
+
+# State machine reference
+state_machine_path: "superpowers-protocol/states/state_machine.yaml"
+failure_routing_path: "superpowers-protocol/states/failure_routing.yaml"
+
+# Global artifact naming law (enforced by receipt.schema.json)
+artifact_naming_pattern: "{job_id}_{step_number}_{artifact_type}_v{version}.{ext}"
+artifact_naming_regex: "^[a-z0-9]+_[0-9]{2}_[a-z_]+_v[0-9]+\\.[a-z]+$"
+
+# Receipt policy
+receipt_policy: append_only
+receipt_amendment_suffix: "_amendment"
+
+# Default trust level assigned to every repo before assimilation
+default_repo_trust: read_only
+
+# Execution mode — write workflows always start in plan_only
+default_execution_mode: plan_only
+write_execution_phases:
+  - plan_only
+  - validate_plan
+  - live_write
+
+# Assumption policy applied to all skills unless overridden
+global_assumption_policy: assumptions_not_allowed
+
+# Fallback policy
+fallback_policy:
+  fallbacks_allowed: false
+  on_unapproved_fallback_needed: BLOCKED_EXECUTION
+
+# Skill manifest — ordered execution sequence
+skills:
+  - skill_id: "00_goal_intake"
+    skill_class: intake
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/00_goal_intake.yaml"
+
+  - skill_id: "01_repo_discovery"
+    skill_class: discovery
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/01_repo_discovery.yaml"
+
+  - skill_id: "02_capability_evidence"
+    skill_class: mapping
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/02_capability_evidence.yaml"
+
+  - skill_id: "03_contract_builder"
+    skill_class: planning
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/03_contract_builder.yaml"
+
+  - skill_id: "04_task_queue_builder"
+    skill_class: planning
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/04_task_queue_builder.yaml"
+
+  - skill_id: "05_validation_rule_builder"
+    skill_class: planning
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/05_validation_rule_builder.yaml"
+
+  - skill_id: "06_controlled_execution"
+    skill_class: execution
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/06_controlled_execution.yaml"
+
+  - skill_id: "07_validation_runner"
+    skill_class: validation
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/07_validation_runner.yaml"
+
+  - skill_id: "08_repair_planner"
+    skill_class: repair
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/08_repair_planner.yaml"
+
+  - skill_id: "09_receipt_writer"
+    skill_class: receipt
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/09_receipt_writer.yaml"
+
+  - skill_id: "10_promotion_gate"
+    skill_class: promotion
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/10_promotion_gate.yaml"
+
+  - skill_id: "11_handoff_checker"
+    skill_class: validation
+    version: "1.0.0"
+    path: "superpowers-protocol/skills/11_handoff_checker.yaml"
+    note: "Cross-cutting gate. Declared in workflow handoff_validations[], not skill_sequence[]."
+
+# Schema manifest
+schemas:
+  - name: goal
+    path: "superpowers-protocol/schemas/goal.schema.json"
+  - name: context_lock
+    path: "superpowers-protocol/schemas/context_lock.schema.json"
+  - name: capability_evidence
+    path: "superpowers-protocol/schemas/capability_evidence.schema.json"
+  - name: execution_contract
+    path: "superpowers-protocol/schemas/execution_contract.schema.json"
+  - name: task_queue
+    path: "superpowers-protocol/schemas/task_queue.schema.json"
+  - name: validation_rules
+    path: "superpowers-protocol/schemas/validation_rules.schema.json"
+  - name: execution_result
+    path: "superpowers-protocol/schemas/execution_result.schema.json"
+  - name: validation_report
+    path: "superpowers-protocol/schemas/validation_report.schema.json"
+  - name: repair_task
+    path: "superpowers-protocol/schemas/repair_task.schema.json"
+  - name: receipt
+    path: "superpowers-protocol/schemas/receipt.schema.json"
+  - name: promotion_record
+    path: "superpowers-protocol/schemas/promotion_record.schema.json"
+  - name: lock
+    path: "superpowers-protocol/schemas/lock.schema.json"
+  - name: handoff_check
+    path: "superpowers-protocol/schemas/handoff_check.schema.json"
+
+# Workflow manifest
+workflows:
+  - workflow_id: repo_assimilation
+    path: "superpowers-protocol/workflows/repo_assimilation.workflow.yaml"
+  - workflow_id: feature_build
+    path: "superpowers-protocol/workflows/feature_build.workflow.yaml"
+  - workflow_id: bug_fix
+    path: "superpowers-protocol/workflows/bug_fix.workflow.yaml"
+  - workflow_id: schema_change
+    path: "superpowers-protocol/workflows/schema_change.workflow.yaml"
+  - workflow_id: dependency_change
+    path: "superpowers-protocol/workflows/dependency_change.workflow.yaml"
+  - workflow_id: documentation
+    path: "superpowers-protocol/workflows/documentation.workflow.yaml"
+  - workflow_id: uv_texture_asset
+    path: "superpowers-protocol/workflows/uv_texture_asset.workflow.yaml"
+  - workflow_id: reference_to_blender
+    path: "superpowers-protocol/workflows/reference_to_blender.workflow.yaml"
