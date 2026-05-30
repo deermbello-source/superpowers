@@ -1,0 +1,126 @@
+name: Promotion Gate
+version: "1.0.0"
+skill_id: "10_promotion_gate"
+skill_class: promotion
+
+purpose:
+  one_sentence: Verify all promotion requirements and produce a promotion record — human approval is required before any artifact can be marked PROMOTED.
+
+state_gate:
+  required_current_state: VALIDATED
+  allowed_next_states_on_success: [PROMOTED]
+  allowed_next_states_on_failure: [VALIDATED]
+  allowed_next_states_on_block: [HUMAN_REVIEW]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_07_validation_report_v1.json"
+    - "receipt artifact for the task"
+  optional_artifacts: []
+  required_fields:
+    - overall_status (must be VALIDATED)
+    - safe_to_continue (must be true)
+    - receipt_sequence_number
+  schema_paths:
+    - "superpowers-protocol/schemas/validation_report.schema.json"
+    - "superpowers-protocol/schemas/receipt.schema.json"
+  invalid_input_route: HUMAN_REVIEW
+
+context_rules:
+  may_infer:
+    - none
+  must_not_infer:
+    - human approval
+    - promotion_type without workflow context
+  unknown_handling: Any uncertainty routes to HUMAN_REVIEW.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: none
+  evidence_required: false
+  allowed_repo_trust_levels: [read_only, artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: []
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+    - "superpowers-protocol/receipts/**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_10_promotion_record_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - check execution_result_exists
+    - check validation_report_safe_to_continue
+    - check receipt_exists
+    - check no_fatal_drift
+    - check no_unresolved_assumption
+    - write promotion_record with human_approved set to false
+    - wait for human to set human_approved to true
+    - update state to PROMOTED only after human_approved is true
+  forbidden_actions:
+    - set human_approved to true without human action
+    - mark system_auto unless workflow_type is documentation or uv_texture_asset
+    - promote without receipt
+    - promote with fatal failures
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: promotion_gate_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_10_promotion_record_v1.json"
+      schema_path: "superpowers-protocol/schemas/promotion_record.schema.json"
+  required_fields:
+    - job_id
+    - promotion_type
+    - gate_checks_passed
+    - gate_checks_failed
+    - human_approved
+    - promoted_by
+    - artifacts_promoted
+  versioning_rule: create_v1_never_overwrite
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - gate_checks_passed_contains_required_five
+    - human_approved_is_boolean
+  fatal_checks:
+    - invalid_json
+    - human_approved_set_by_system_for_non_auto_workflow
+    - promotion_without_receipt
+  repairable_checks: []
+  warning_checks:
+    - gate_checks_failed_nonempty
+
+failure_routing:
+  missing_input: HUMAN_REVIEW
+  invalid_schema: VALIDATED
+  missing_capability: not_applicable
+  forbidden_path: BLOCKED_EXECUTION
+  command_failure: not_applicable
+  unresolved_assumption: HUMAN_REVIEW
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "09_receipt_writer"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_10_promotion_record_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Promotion record exists, all five gate checks passed, human_approved is true, and state is PROMOTED.
+  partial_condition: Promotion record exists but human_approved is still false (awaiting review).
+  blocked_condition: Gate checks failed or required receipt is missing.

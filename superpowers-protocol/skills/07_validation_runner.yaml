@@ -1,0 +1,127 @@
+name: Validation Runner
+version: "1.0.0"
+skill_id: "07_validation_runner"
+skill_class: validation
+
+purpose:
+  one_sentence: Apply every rule in validation_rules.json to the execution result and produce a validation report that classifies all failures before any promotion can occur.
+
+state_gate:
+  required_current_state: EXECUTING
+  allowed_next_states_on_success: [VALIDATED]
+  allowed_next_states_on_failure: [REPAIR_REQUIRED]
+  allowed_next_states_on_block: [BLOCKED_VALIDATION]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_05_validation_rules_v1.json"
+    - "{job_id}_06_execution_result_{task_id}_v1.json"
+  optional_artifacts: []
+  required_fields:
+    - validation_sets
+    - status
+    - files_created
+    - files_modified
+  schema_paths:
+    - "superpowers-protocol/schemas/validation_rules.schema.json"
+    - "superpowers-protocol/schemas/execution_result.schema.json"
+  invalid_input_route: BLOCKED_VALIDATION
+
+context_rules:
+  may_infer:
+    - none
+  must_not_infer:
+    - check result without running the check
+    - pass a check that did not actually run
+  unknown_handling: If a check cannot be evaluated, mark it as failed with on_fail behavior.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: none
+  evidence_required: false
+  allowed_repo_trust_levels: [read_only, artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: []
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+    - "**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_07_validation_report_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths: []
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read validation rules
+    - read execution result
+    - run each check in validation_sets
+    - classify each failure as fatal/repairable/warning
+    - produce validation_report
+    - route fatal failures to BLOCKED_VALIDATION
+    - route repairable failures to REPAIR_REQUIRED
+    - update state
+  forbidden_actions:
+    - skip any check
+    - mark a check passed without running it
+    - auto-repair during validation
+    - modify any source files
+    - write to any repo path
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: validation_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_07_validation_report_v1.json"
+      schema_path: "superpowers-protocol/schemas/validation_report.schema.json"
+  required_fields:
+    - job_id
+    - rules_evaluated
+    - fatal_failures
+    - repairable_failures
+    - warnings
+    - overall_status
+    - safe_to_continue
+  versioning_rule: create_new_report_per_validation_run
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - all_rules_evaluated
+    - safe_to_continue_is_false_if_any_fatal
+  fatal_checks:
+    - invalid_json
+    - rules_evaluated_is_zero
+    - safe_to_continue_true_with_fatal_failures
+  repairable_checks: []
+  warning_checks:
+    - only_warnings_no_failures
+
+failure_routing:
+  missing_input: BLOCKED_VALIDATION
+  invalid_schema: BLOCKED_VALIDATION
+  missing_capability: not_applicable
+  forbidden_path: BLOCKED_EXECUTION
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_VALIDATION
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "08_repair_planner"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_07_validation_report_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Validation report exists, all rules evaluated, safe_to_continue is true, and overall_status is VALIDATED.
+  partial_condition: Some rules evaluated but report incomplete.
+  blocked_condition: Fatal failures found; overall_status is BLOCKED_VALIDATION.

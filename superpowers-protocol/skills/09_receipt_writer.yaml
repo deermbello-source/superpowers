@@ -1,0 +1,129 @@
+name: Receipt Writer
+version: "1.0.0"
+skill_id: "09_receipt_writer"
+skill_class: receipt
+
+purpose:
+  one_sentence: Write an append-only, tamper-resistant receipt recording the state transition, artifact, and checksum for every completed task in the job.
+
+state_gate:
+  required_current_state: VALIDATED
+  allowed_next_states_on_success: [PROMOTED]
+  allowed_next_states_on_failure: [VALIDATED]
+  allowed_next_states_on_block: [HUMAN_REVIEW]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_07_validation_report_v1.json"
+    - "execution_result artifact for the task"
+  optional_artifacts: []
+  required_fields:
+    - overall_status (must be VALIDATED)
+    - safe_to_continue (must be true)
+  schema_paths:
+    - "superpowers-protocol/schemas/validation_report.schema.json"
+    - "superpowers-protocol/schemas/execution_result.schema.json"
+  invalid_input_route: VALIDATED
+
+context_rules:
+  may_infer:
+    - receipt_sequence_number by reading existing receipts and incrementing
+  must_not_infer:
+    - checksum (must be computed, not guessed)
+    - prior_state or next_state (must come from state artifact)
+  unknown_handling: If state transition cannot be confirmed from artifacts, block and request human review.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: none
+  evidence_required: false
+  allowed_repo_trust_levels: [read_only, artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: []
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+    - "superpowers-protocol/receipts/**"
+  allowed_write_paths:
+    - "superpowers-protocol/receipts/{job_id}_receipt_v{sequence}.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read validation report
+    - compute checksum of artifact
+    - determine receipt_sequence_number
+    - write receipt artifact with monotonic sequence number
+    - update state
+  forbidden_actions:
+    - overwrite an existing receipt
+    - backdate written_at
+    - delete any receipt
+    - modify any receipt after finalization
+    - write receipt unless overall_status is VALIDATED
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: receipt_writing_only
+  idempotency_required: false
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/receipts/{job_id}_receipt_v{sequence}.json"
+      schema_path: "superpowers-protocol/schemas/receipt.schema.json"
+  required_fields:
+    - job_id
+    - task_id
+    - artifact_name
+    - artifact_path
+    - checksum_sha256
+    - written_at
+    - written_by_skill
+    - prior_state
+    - next_state
+    - receipt_sequence_number
+    - is_amendment
+  versioning_rule: append_only_never_overwrite
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - artifact_name_matches_naming_pattern
+    - checksum_is_64_char_hex
+    - sequence_number_is_monotonic
+  fatal_checks:
+    - invalid_json
+    - artifact_name_violates_naming_pattern
+    - checksum_malformed
+    - overwrite_attempted
+  repairable_checks: []
+  warning_checks:
+    - is_amendment_true
+
+failure_routing:
+  missing_input: VALIDATED
+  invalid_schema: VALIDATED
+  missing_capability: not_applicable
+  forbidden_path: BLOCKED_EXECUTION
+  command_failure: not_applicable
+  unresolved_assumption: HUMAN_REVIEW
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "10_promotion_gate"
+  handoff_artifact:
+    - "superpowers-protocol/receipts/{job_id}_receipt_v{sequence}.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Receipt file exists in superpowers-protocol/receipts/, artifact_name matches naming pattern, checksum is valid, sequence number is monotonic, and state is PROMOTED.
+  partial_condition: Receipt written but is_amendment is true (indicates a correction was needed).
+  blocked_condition: Validation report does not have safe_to_continue true; receipt cannot be written.

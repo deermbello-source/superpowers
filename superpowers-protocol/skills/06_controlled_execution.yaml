@@ -1,0 +1,172 @@
+name: Controlled Execution
+version: "1.0.0"
+skill_id: "06_controlled_execution"
+skill_class: execution
+
+purpose:
+  one_sentence: Execute exactly one atomic task inside the authorized contract boundary using a mandatory three-phase write gate, and produce an execution result.
+
+state_gate:
+  required_current_state: TASK_READY
+  allowed_next_states_on_success: [EXECUTING, VALIDATING]
+  allowed_next_states_on_failure: [REPAIR_REQUIRED]
+  allowed_next_states_on_block: [BLOCKED_EXECUTION]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_03_execution_contract_v1.json"
+    - "{job_id}_04_task_queue_v1.json"
+    - "{job_id}_05_validation_rules_v1.json"
+    - "{job_id}_06_state_v1.json"
+  optional_artifacts:
+    - "locks.json"
+  required_fields:
+    - task_id
+    - capability_id
+    - allowed_read_paths
+    - allowed_write_paths
+    - forbidden_paths
+    - action_spec
+    - expected_outputs
+    - preconditions
+    - postconditions
+  schema_paths:
+    - "superpowers-protocol/schemas/execution_contract.schema.json"
+    - "superpowers-protocol/schemas/task_queue.schema.json"
+  invalid_input_route: BLOCKED_EXECUTION
+
+context_rules:
+  may_infer:
+    - none
+  must_not_infer:
+    - missing input path
+    - missing command
+    - missing dependency
+    - missing file boundary
+    - missing expected output
+    - alternate implementation approach
+  unknown_handling: If any unknown affects execution, route to BLOCKED_EXECUTION.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: usable_now
+  evidence_required: true
+  allowed_repo_trust_levels: [artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: [unknown, read_only]
+
+path_rules:
+  allowed_read_paths: from_task_card_only
+  allowed_write_paths: from_task_card_only
+  forbidden_paths: from_task_card_and_contract
+  lock_required: true
+
+execution_rules:
+  # Three-phase write gate. Execution MUST NOT skip phases.
+  write_phases:
+    - phase: plan_only
+      description: Analyze, read, and produce a diff or plan. No writes, no commands.
+      allowed_actions: [read, analyze, produce_diff, list_changes]
+      forbidden_actions: [write, execute, commit, install]
+    - phase: validate_plan
+      description: Validate the proposed plan against contract paths and schemas. No writes.
+      allowed_actions: [validate_against_contract, check_paths, check_schema_compatibility]
+      forbidden_actions: [write, execute]
+    - phase: live_write
+      description: Execute the validated plan within contract boundaries.
+      allowed_actions: [write_to_approved_paths, execute_approved_commands, acquire_lock, release_lock]
+      forbidden_actions: [write_outside_contract, silent_fallback, infer_missing_paths, skip_precondition_check]
+
+  unapproved_fallback_route: BLOCKED_EXECUTION
+
+  allowed_actions:
+    - check preconditions
+    - acquire required locks
+    - execute action_spec in live_write phase
+    - write expected outputs to allowed_write_paths
+    - record commands run
+    - record files created and modified
+    - release locks after result
+    - write execution_result artifact
+  forbidden_actions:
+    - modify forbidden_paths
+    - write files outside allowed_write_paths
+    - install dependencies unless explicitly listed in allowed_commands
+    - change schemas unless task_type is schema_change
+    - refactor unrelated code
+    - create new architecture
+    - delete files unless explicitly authorized in action_spec
+    - continue after precondition failure
+    - self-validate as final
+    - skip any write phase
+    - overwrite an existing artifact (create a new versioned artifact instead)
+  allowed_commands: from_task_card_only
+  forbidden_commands:
+    - "rm -rf"
+    - "git push"
+    - "git reset --hard"
+    - "git push --force"
+    - "chmod 777"
+    - "curl * | bash"
+    - "wget * | sh"
+  max_scope: one_task_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/results/{job_id}_06_execution_result_{task_id}_v1.json"
+      schema_path: "superpowers-protocol/schemas/execution_result.schema.json"
+  required_fields:
+    - task_id
+    - status
+    - preconditions_checked
+    - files_created
+    - files_modified
+    - commands_run
+    - outputs
+    - errors
+    - assumptions_made
+    - deviations
+    - locks_acquired
+    - locks_released
+  versioning_rule: create_new_result_per_attempt
+
+validation:
+  required_checks:
+    - preconditions_passed
+    - expected_outputs_exist
+    - write_boundary_respected
+    - forbidden_paths_untouched
+    - no_unresolved_assumption
+  fatal_checks:
+    - forbidden_path_modified
+    - missing_expected_output
+    - unapproved_dependency_added
+  repairable_checks:
+    - output_format_invalid
+    - command_failed_with_known_error
+  warning_checks:
+    - nonfatal_lint_warning
+
+failure_routing:
+  missing_input: BLOCKED_EXECUTION
+  invalid_schema: BLOCKED_EXECUTION
+  missing_capability: BLOCKED_CAPABILITY
+  forbidden_path: BLOCKED_EXECUTION
+  command_failure: REPAIR_REQUIRED
+  unresolved_assumption: BLOCKED_EXECUTION
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "07_validation_runner"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/results/{job_id}_06_execution_result_{task_id}_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Execution result exists, expected outputs exist, no forbidden path touched, three-phase gate completed, and state is ready for validation.
+  partial_condition: Some output produced but acceptance cannot be confirmed.
+  blocked_condition: Execution requires an action outside the contract or an unknown blocks the task.

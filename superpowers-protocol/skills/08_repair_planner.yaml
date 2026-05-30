@@ -1,0 +1,129 @@
+name: Repair Planner
+version: "1.0.0"
+skill_id: "08_repair_planner"
+skill_class: repair
+
+purpose:
+  one_sentence: Plan a bounded repair task scoped strictly to the identified repairable failures, without introducing new paths, commands, or architecture.
+
+state_gate:
+  required_current_state: REPAIR_REQUIRED
+  allowed_next_states_on_success: [REPAIRING]
+  allowed_next_states_on_failure: [BLOCKED_REPAIR]
+  allowed_next_states_on_block: [HUMAN_REVIEW]
+
+input_contract:
+  required_artifacts:
+    - "{job_id}_07_validation_report_v1.json"
+    - "{job_id}_04_task_queue_v1.json"
+    - "{job_id}_03_execution_contract_v1.json"
+  optional_artifacts: []
+  required_fields:
+    - repairable_failures
+    - overall_status
+  schema_paths:
+    - "superpowers-protocol/schemas/validation_report.schema.json"
+  invalid_input_route: BLOCKED_REPAIR
+
+context_rules:
+  may_infer:
+    - repair artifact from the original task's allowed_write_paths
+  must_not_infer:
+    - new paths not in original task contract
+    - new commands not in original task contract
+    - architecture changes
+  unknown_handling: If the repair requires anything outside the original contract, route to BLOCKED_REPAIR.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: usable_now
+  evidence_required: true
+  allowed_repo_trust_levels: [artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: [unknown, read_only]
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_08_repair_task_v1.json"
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_06_state_v1.json"
+  forbidden_paths:
+    - "**"
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read validation report repairable_failures
+    - read original task from task_queue
+    - create repair_task scoped to repairable failures only
+    - set repair scope as one-sentence description
+    - set max_attempts to 3
+    - increment attempt_count
+    - route to HUMAN_REVIEW if attempt_count exceeds max_attempts
+    - write repair_task artifact
+    - update state to REPAIRING
+  forbidden_actions:
+    - add new paths not in original task
+    - add new commands not in original task
+    - expand scope beyond identified failures
+    - create new architecture
+    - repair fatal failures (route to BLOCKED_REPAIR instead)
+    - execute the repair (that is 06_controlled_execution's job)
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: repair_planning_only
+  idempotency_required: false
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/{job_id}_08_repair_task_v1.json"
+      schema_path: "superpowers-protocol/schemas/repair_task.schema.json"
+  required_fields:
+    - repair_id
+    - parent_task_id
+    - failure_rule_ids
+    - repair_scope
+    - max_attempts
+    - attempt_count
+    - repair_artifacts
+    - forbidden_scope_expansions
+  versioning_rule: create_new_per_repair_cycle
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - repair_artifacts_within_original_contract
+    - attempt_count_below_max
+  fatal_checks:
+    - invalid_json
+    - repair_scope_expands_beyond_contract
+    - attempt_count_exceeds_max
+  repairable_checks: []
+  warning_checks:
+    - repair_scope_broad
+
+failure_routing:
+  missing_input: BLOCKED_REPAIR
+  invalid_schema: BLOCKED_REPAIR
+  missing_capability: BLOCKED_REPAIR
+  forbidden_path: BLOCKED_REPAIR
+  command_failure: not_applicable
+  unresolved_assumption: HUMAN_REVIEW
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: "06_controlled_execution"
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/{job_id}_08_repair_task_v1.json"
+  handoff_validation_required: true
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Repair task exists, scope is bounded to identified repairable failures, attempt_count is below max_attempts, and state is REPAIRING.
+  partial_condition: Repair task drafted but scope may be too broad.
+  blocked_condition: Repair requires new paths, commands, or architecture outside the original contract; or attempt_count has reached max_attempts.

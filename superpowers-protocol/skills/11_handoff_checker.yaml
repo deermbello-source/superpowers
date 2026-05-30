@@ -1,0 +1,118 @@
+name: Handoff Checker
+version: "1.0.0"
+skill_id: "11_handoff_checker"
+skill_class: validation
+
+# IMPORTANT: This skill is a cross-cutting gate, not a linear workflow step.
+# Workflows declare it in handoff_validations[] as named pairs, NOT in skill_sequence[].
+# Example: { from: "05_validation_rule_builder", to: "06_controlled_execution" }
+# The next skill MUST NOT run unless handoff_valid is true in the handoff_check artifact.
+
+purpose:
+  one_sentence: Verify that a producing skill's output artifact fully satisfies the consuming skill's input_contract before the consuming skill is allowed to run.
+
+state_gate:
+  required_current_state: any
+  allowed_next_states_on_success: [same as current state]
+  allowed_next_states_on_failure: [routes back to producing skill's failure path]
+  allowed_next_states_on_block: [BLOCKED_EXECUTION]
+
+input_contract:
+  required_artifacts:
+    - producing_skill_output_artifact
+  optional_artifacts: []
+  required_fields:
+    - job_id
+  schema_paths: []
+  invalid_input_route: BLOCKED_EXECUTION
+
+context_rules:
+  may_infer:
+    - none
+  must_not_infer:
+    - whether a check passed without running it
+    - consumer contract requirements not in the skill card
+  unknown_handling: If handoff cannot be verified, set handoff_valid to false.
+  assumption_policy: assumptions_not_allowed
+
+capability_rules:
+  required_capability_status: none
+  evidence_required: false
+  allowed_repo_trust_levels: [read_only, artifact_write, limited_patch, trusted_patch]
+  forbidden_repo_trust_levels: []
+
+path_rules:
+  allowed_read_paths:
+    - "superpowers-protocol/job_packets/{job_id}/**"
+    - "superpowers-protocol/skills/**"
+  allowed_write_paths:
+    - "superpowers-protocol/job_packets/{job_id}/handoffs/{from_skill}_to_{to_skill}_handoff_check.json"
+  forbidden_paths: []
+  lock_required: false
+
+execution_rules:
+  allowed_actions:
+    - read producing skill output artifact
+    - read consuming skill input_contract (from skill card)
+    - run each of the four handoff checks
+    - write handoff_check artifact
+    - set handoff_valid to true or false
+  forbidden_actions:
+    - allow the consuming skill to run if handoff_valid is false
+    - repair the producing skill output
+    - modify the producing skill output
+    - skip any of the four checks
+  allowed_commands: []
+  forbidden_commands:
+    - "*"
+  max_scope: handoff_validation_only
+  idempotency_required: true
+
+output_contract:
+  produced_artifacts:
+    - path: "superpowers-protocol/job_packets/{job_id}/handoffs/{from_skill}_to_{to_skill}_handoff_check.json"
+      schema_path: "superpowers-protocol/schemas/handoff_check.schema.json"
+  required_fields:
+    - from_skill
+    - to_skill
+    - handoff_artifact_path
+    - checks (all four)
+    - handoff_valid
+  versioning_rule: create_new_per_handoff_check
+
+validation:
+  required_checks:
+    - json_valid
+    - schema_valid
+    - all_four_checks_run
+    - handoff_valid_is_boolean
+  fatal_checks:
+    - invalid_json
+    - check_skipped
+    - handoff_valid_true_with_failed_checks
+  repairable_checks: []
+  warning_checks: []
+
+failure_routing:
+  missing_input: BLOCKED_EXECUTION
+  invalid_schema: BLOCKED_EXECUTION
+  missing_capability: not_applicable
+  forbidden_path: BLOCKED_EXECUTION
+  command_failure: not_applicable
+  unresolved_assumption: BLOCKED_EXECUTION
+  human_choice_needed: HUMAN_REVIEW
+
+handoff:
+  next_skill: consuming_skill_as_declared_in_workflow_handoff_validations
+  handoff_artifact:
+    - "superpowers-protocol/job_packets/{job_id}/handoffs/{from_skill}_to_{to_skill}_handoff_check.json"
+  handoff_validation_required: false
+
+receipt:
+  required: false
+  receipt_fields: []
+
+completion:
+  success_condition: Handoff check artifact exists, all four checks ran, handoff_valid is true, and consuming skill is allowed to proceed.
+  partial_condition: Checks ran but handoff_valid is false; producing skill must be re-run.
+  blocked_condition: Handoff artifact cannot be written or producing skill output cannot be read.
