@@ -1,0 +1,86 @@
+workflow_id: uv_texture_asset
+version: "1.0.0"
+purpose: Create, update, or export a UV-mapped texture asset within an authorized asset directory.
+
+trigger_conditions:
+  - User requests a new UV texture asset.
+  - An existing texture asset needs to be updated or re-exported.
+  - A 3D workflow requires a texture asset as an input.
+
+state_sequence:
+  - DRAFT
+  - INTAKE_LOCKED
+  - CAPABILITY_MAPPED
+  - CONTRACT_READY
+  - TASK_READY
+  - EXECUTING
+  - VALIDATING
+  - VALIDATED
+  - PROMOTED
+  - RECEIPTED
+
+skill_sequence:
+  - step: 1
+    skill_id: "00_goal_intake"
+    input_from: user_request
+    output_to: goal_artifact
+    note: goal must specify asset name, texture type, resolution, and target directory
+  - step: 2
+    skill_id: "01_repo_discovery"
+    input_from: goal_artifact
+    output_to: capability_evidence_raw
+    note: Evidence type folder_pattern required for asset directories
+  - step: 3
+    skill_id: "02_capability_evidence"
+    input_from: capability_evidence_raw
+    output_to: capability_evidence_final
+  - step: 4
+    skill_id: "03_contract_builder"
+    input_from: capability_evidence_final
+    output_to: execution_contract
+    note: allowed_write_paths must include the specific asset directory
+  - step: 5
+    skill_id: "04_task_queue_builder"
+    input_from: execution_contract
+    output_to: task_queue
+  - step: 6
+    skill_id: "05_validation_rule_builder"
+    input_from: task_queue
+    output_to: validation_rules
+  - step: 7
+    skill_id: "06_controlled_execution"
+    input_from: validation_rules
+    output_to: execution_result
+  - step: 8
+    skill_id: "07_validation_runner"
+    input_from: execution_result
+    output_to: validation_report
+  - step: 9
+    skill_id: "09_receipt_writer"
+    input_from: validation_report
+    output_to: receipt
+  - step: 10
+    skill_id: "10_promotion_gate"
+    input_from: receipt
+    output_to: promotion_record
+    note: promoted_by may be system_auto for uv_texture_asset workflow type
+
+handoff_validations:
+  - from: "05_validation_rule_builder"
+    to: "06_controlled_execution"
+    required: true
+
+receipt_required_at:
+  - VALIDATED
+
+failure_escalation_policy:
+  BLOCKED_CAPABILITY: Asset directory not evidenced via folder_pattern. Run repo assimilation first.
+  BLOCKED_EXECUTION: Stop. Asset write attempted outside authorized asset directory.
+  HUMAN_REVIEW: Asset spec is ambiguous. List the missing details. Wait.
+
+asset_constraints:
+  - Evidence type folder_pattern is required to authorize asset directory writes.
+  - max_scope must be single_asset per task.
+  - allowed_commands may include image processing and export tools (strings, not enum).
+  - Do not modify source code.
+  - Do not modify schemas.

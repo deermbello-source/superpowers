@@ -1,0 +1,91 @@
+workflow_id: reference_to_blender
+version: "1.0.0"
+purpose: Execute a Blender Python API operation using a reference script, validating Blender API schema compatibility before running.
+
+trigger_conditions:
+  - User requests a Blender operation via Python API.
+  - A 3D asset pipeline step requires Blender background execution.
+  - A UV mapping, rendering, or scene export task targets Blender.
+
+state_sequence:
+  - DRAFT
+  - INTAKE_LOCKED
+  - CAPABILITY_MAPPED
+  - CONTRACT_READY
+  - TASK_READY
+  - EXECUTING
+  - VALIDATING
+  - VALIDATED
+  - PROMOTED
+  - RECEIPTED
+
+skill_sequence:
+  - step: 1
+    skill_id: "00_goal_intake"
+    input_from: user_request
+    output_to: goal_artifact
+    note: goal must specify Blender version, Python API version, input file, and expected output
+  - step: 2
+    skill_id: "01_repo_discovery"
+    input_from: goal_artifact
+    output_to: capability_evidence_raw
+    note: Evidence must confirm Blender binary path and version via cli_command evidence type
+  - step: 3
+    skill_id: "02_capability_evidence"
+    input_from: capability_evidence_raw
+    output_to: capability_evidence_final
+    note: Capability must have cli_command evidence for blender with confirmed version
+  - step: 4
+    skill_id: "03_contract_builder"
+    input_from: capability_evidence_final
+    output_to: execution_contract
+    note: allowed_commands must include exact blender command with --background --python flags
+  - step: 5
+    skill_id: "04_task_queue_builder"
+    input_from: execution_contract
+    output_to: task_queue
+  - step: 6
+    skill_id: "05_validation_rule_builder"
+    input_from: task_queue
+    output_to: validation_rules
+    note: Validation rules must check Blender API references against confirmed version
+  - step: 7
+    skill_id: "06_controlled_execution"
+    input_from: validation_rules
+    output_to: execution_result
+  - step: 8
+    skill_id: "07_validation_runner"
+    input_from: execution_result
+    output_to: validation_report
+  - step: 9
+    skill_id: "09_receipt_writer"
+    input_from: validation_report
+    output_to: receipt
+  - step: 10
+    skill_id: "10_promotion_gate"
+    input_from: receipt
+    output_to: promotion_record
+
+handoff_validations:
+  - from: "02_capability_evidence"
+    to: "03_contract_builder"
+    required: true
+  - from: "05_validation_rule_builder"
+    to: "06_controlled_execution"
+    required: true
+
+receipt_required_at:
+  - VALIDATED
+
+failure_escalation_policy:
+  BLOCKED_CAPABILITY: Blender binary not found or version not confirmed. Do not proceed.
+  BLOCKED_EXECUTION: Stop. Blender command outside authorized contract.
+  HUMAN_REVIEW: Blender API version mismatch. List the options. Wait.
+
+blender_constraints:
+  - Blender version must be confirmed via capability evidence before any command runs.
+  - allowed_commands uses string list (not enum) to accommodate Blender-specific flags.
+  - Python script must be validated against the confirmed Blender API version before execution.
+  - blender --background --python is the only safe execution mode for automated workflows.
+  - Output files must be written to allowed_write_paths only.
+  - Do not run Blender in interactive mode.

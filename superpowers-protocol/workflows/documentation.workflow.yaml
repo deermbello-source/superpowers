@@ -1,0 +1,68 @@
+workflow_id: documentation
+version: "1.0.0"
+purpose: Create or update documentation files without requiring execution locks, receipts, or human promotion approval.
+
+trigger_conditions:
+  - User requests documentation updates, README changes, or comment additions.
+  - A feature build or bug fix produces documentation artifacts as a side output.
+
+state_sequence:
+  - DRAFT
+  - INTAKE_LOCKED
+  - CONTRACT_READY
+  - TASK_READY
+  - EXECUTING
+  - VALIDATING
+  - VALIDATED
+  - PROMOTED
+
+skill_sequence:
+  - step: 1
+    skill_id: "00_goal_intake"
+    input_from: user_request
+    output_to: goal_artifact
+  - step: 2
+    skill_id: "03_contract_builder"
+    input_from: goal_artifact
+    output_to: execution_contract
+    note: Capability discovery skipped for doc-only workflows
+  - step: 3
+    skill_id: "04_task_queue_builder"
+    input_from: execution_contract
+    output_to: task_queue
+  - step: 4
+    skill_id: "05_validation_rule_builder"
+    input_from: task_queue
+    output_to: validation_rules
+  - step: 5
+    skill_id: "06_controlled_execution"
+    input_from: validation_rules
+    output_to: execution_result
+    note: No lock required for documentation write paths
+  - step: 6
+    skill_id: "07_validation_runner"
+    input_from: execution_result
+    output_to: validation_report
+  - step: 7
+    skill_id: "10_promotion_gate"
+    input_from: validation_report
+    output_to: promotion_record
+    note: promoted_by may be system_auto for documentation workflow type
+
+handoff_validations:
+  - from: "05_validation_rule_builder"
+    to: "06_controlled_execution"
+    required: true
+
+receipt_required_at: []
+
+failure_escalation_policy:
+  BLOCKED_CONTRACT: Documentation paths are not in allowed_write_paths. Clarify scope.
+  BLOCKED_EXECUTION: Stop. Documentation write attempted outside contract.
+  HUMAN_REVIEW: Content decision needed. List the question. Wait.
+
+documentation_constraints:
+  - Write to documentation paths only (*.md, *.rst, *.txt, docs/, comments in source).
+  - Do not modify source code logic.
+  - Do not modify schemas.
+  - Promotion may be automatic (system_auto) since no code is changed.

@@ -1,0 +1,86 @@
+workflow_id: repo_assimilation
+version: "1.0.0"
+purpose: Scan an unfamiliar repo to produce trust profile, capability evidence, boundary map, and command map before any other workflow can use the repo.
+
+trigger_conditions:
+  - A repo is added to the job for the first time.
+  - An existing repo trust profile is expired or missing.
+  - The user explicitly requests assimilation before a workflow.
+
+state_sequence:
+  - DRAFT
+  - INTAKE_LOCKED
+  - CAPABILITY_MAPPED
+  - CONTRACT_READY
+  - TASK_READY
+  - EXECUTING
+  - VALIDATING
+  - VALIDATED
+  - PROMOTED
+  - RECEIPTED
+
+skill_sequence:
+  - step: 1
+    skill_id: "00_goal_intake"
+    input_from: user_request
+    output_to: goal_artifact
+  - step: 2
+    skill_id: "01_repo_discovery"
+    input_from: goal_artifact
+    output_to: capability_evidence_raw
+  - step: 3
+    skill_id: "02_capability_evidence"
+    input_from: capability_evidence_raw
+    output_to: capability_evidence_final
+  - step: 4
+    skill_id: "03_contract_builder"
+    input_from: capability_evidence_final
+    output_to: execution_contract
+  - step: 5
+    skill_id: "04_task_queue_builder"
+    input_from: execution_contract
+    output_to: task_queue
+  - step: 6
+    skill_id: "05_validation_rule_builder"
+    input_from: task_queue
+    output_to: validation_rules
+  - step: 7
+    skill_id: "06_controlled_execution"
+    input_from: validation_rules
+    output_to: execution_result
+  - step: 8
+    skill_id: "07_validation_runner"
+    input_from: execution_result
+    output_to: validation_report
+  - step: 9
+    skill_id: "09_receipt_writer"
+    input_from: validation_report
+    output_to: receipt
+  - step: 10
+    skill_id: "10_promotion_gate"
+    input_from: receipt
+    output_to: promotion_record
+
+handoff_validations:
+  - from: "02_capability_evidence"
+    to: "03_contract_builder"
+    required: true
+  - from: "05_validation_rule_builder"
+    to: "06_controlled_execution"
+    required: true
+  - from: "07_validation_runner"
+    to: "09_receipt_writer"
+    required: true
+
+receipt_required_at:
+  - VALIDATED
+
+failure_escalation_policy:
+  BLOCKED_CAPABILITY: Assimilation failed. Repo cannot be used until trust profile is established manually.
+  BLOCKED_EXECUTION: Stop. Assimilation must not write to the target repo.
+  HUMAN_REVIEW: List the decision required and wait. Do not proceed.
+
+notes:
+  - Repo trust begins as read_only. Only 02_capability_evidence may elevate it.
+  - This workflow produces no writes to the target repo. All outputs go to job_packets/.
+  - Must complete before the repo can be used in any other workflow.

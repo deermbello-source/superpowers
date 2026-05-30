@@ -1,0 +1,82 @@
+workflow_id: dependency_change
+version: "1.0.0"
+purpose: Add, remove, or update a dependency with explicit approval and impact analysis, preventing dependency installation during normal execution.
+
+trigger_conditions:
+  - A task requires a package install.
+  - A package.json, requirements.txt, go.mod, or lockfile change is requested.
+  - A new library is needed to implement a feature.
+
+state_sequence:
+  - DRAFT
+  - INTAKE_LOCKED
+  - CAPABILITY_MAPPED
+  - CONTRACT_READY
+  - TASK_READY
+  - EXECUTING
+  - VALIDATING
+  - VALIDATED
+  - PROMOTED
+  - RECEIPTED
+
+skill_sequence:
+  - step: 1
+    skill_id: "00_goal_intake"
+    input_from: user_request
+    output_to: goal_artifact
+    note: goal must name the specific package, version, reason, and files to change
+  - step: 2
+    skill_id: "01_repo_discovery"
+    input_from: goal_artifact
+    output_to: capability_evidence_raw
+    note: Focus on existing dependencies, lockfiles, and package manager configuration
+  - step: 3
+    skill_id: "03_contract_builder"
+    input_from: capability_evidence_raw
+    output_to: execution_contract
+    note: Contract must include explicit lock on lockfiles and package manifests
+  - step: 4
+    skill_id: "04_task_queue_builder"
+    input_from: execution_contract
+    output_to: task_queue
+  - step: 5
+    skill_id: "05_validation_rule_builder"
+    input_from: task_queue
+    output_to: validation_rules
+  - step: 6
+    skill_id: "06_controlled_execution"
+    input_from: validation_rules
+    output_to: execution_result
+  - step: 7
+    skill_id: "07_validation_runner"
+    input_from: execution_result
+    output_to: validation_report
+  - step: 8
+    skill_id: "09_receipt_writer"
+    input_from: validation_report
+    output_to: receipt
+  - step: 9
+    skill_id: "10_promotion_gate"
+    input_from: receipt
+    output_to: promotion_record
+
+handoff_validations:
+  - from: "05_validation_rule_builder"
+    to: "06_controlled_execution"
+    required: true
+
+receipt_required_at:
+  - VALIDATED
+
+failure_escalation_policy:
+  BLOCKED_CONTRACT: Dependency approval not present. Do not install.
+  BLOCKED_EXECUTION: Dependency install attempted without explicit authorization. Stop.
+  HUMAN_REVIEW: Risk level is high or alternatives are unclear. List them. Wait.
+
+dependency_change_constraints:
+  - Default route when dependency is needed during normal execution is BLOCKED_CONTRACT.
+  - Do not install a dependency during any workflow other than dependency_change.
+  - Do not modify lockfiles without a dedicated dependency_change task.
+  - Do not add a dependency for convenience if existing code can fulfill the need.
+  - Risk levels: low (dev-only, no lockfile change), medium (runtime, lockfile changes), high (security-sensitive, peer deps).
+  - All lockfile changes must be listed in the contract's allowed_write_paths.

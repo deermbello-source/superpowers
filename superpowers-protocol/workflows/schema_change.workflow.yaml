@@ -1,0 +1,83 @@
+workflow_id: schema_change
+version: "1.0.0"
+purpose: Change an artifact schema safely without breaking existing producer or consumer skills.
+
+trigger_conditions:
+  - A required field needs to be added, removed, or renamed in a JSON schema.
+  - A validation rule references a schema that must be updated.
+
+state_sequence:
+  - DRAFT
+  - INTAKE_LOCKED
+  - CAPABILITY_MAPPED
+  - CONTRACT_READY
+  - TASK_READY
+  - EXECUTING
+  - VALIDATING
+  - VALIDATED
+  - PROMOTED
+  - RECEIPTED
+
+skill_sequence:
+  - step: 1
+    skill_id: "00_goal_intake"
+    input_from: user_request
+    output_to: goal_artifact
+    note: goal must name the specific schema file and the exact field change
+  - step: 2
+    skill_id: "01_repo_discovery"
+    input_from: goal_artifact
+    output_to: capability_evidence_raw
+    note: Scan specifically to find all producer and consumer skills referencing this schema
+  - step: 3
+    skill_id: "03_contract_builder"
+    input_from: capability_evidence_raw
+    output_to: execution_contract
+    note: Contract must list all affected producer and consumer skills
+  - step: 4
+    skill_id: "04_task_queue_builder"
+    input_from: execution_contract
+    output_to: task_queue
+    note: Task queue must include tasks to update all affected skill cards after schema change
+  - step: 5
+    skill_id: "05_validation_rule_builder"
+    input_from: task_queue
+    output_to: validation_rules
+  - step: 6
+    skill_id: "06_controlled_execution"
+    input_from: validation_rules
+    output_to: execution_result
+  - step: 7
+    skill_id: "07_validation_runner"
+    input_from: execution_result
+    output_to: validation_report
+  - step: 8
+    skill_id: "09_receipt_writer"
+    input_from: validation_report
+    output_to: receipt
+  - step: 9
+    skill_id: "10_promotion_gate"
+    input_from: receipt
+    output_to: promotion_record
+
+handoff_validations:
+  - from: "05_validation_rule_builder"
+    to: "06_controlled_execution"
+    required: true
+
+receipt_required_at:
+  - VALIDATED
+
+failure_escalation_policy:
+  BLOCKED_CONTRACT: Not all consumers of the schema were identified. Do not proceed.
+  BLOCKED_EXECUTION: Stop. Schema change attempted outside authorized scope.
+  HUMAN_REVIEW: Ambiguous migration path. List the options. Wait.
+
+schema_change_constraints:
+  - All producer skills referencing this schema must be listed in the contract.
+  - All consumer skills referencing this schema must be listed in the contract.
+  - A migration note must exist in the task queue for every field rename or removal.
+  - Old artifacts must not be silently invalidated; an archive rule must be defined.
+  - Schema version must be incremented (minor for additions, major for breaking changes).
+  - Do not silently alter schema field names.
+  - Do not remove required fields unless all consumers are updated in the same task queue.
