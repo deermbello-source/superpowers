@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/repair_task.schema.json",
+  "title": "RepairTask",
+  "description": "A bounded repair task produced by 08_repair_planner. Scope is strictly limited to fixing identified failures.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "repair_id",
+    "parent_task_id",
+    "failure_rule_ids",
+    "repair_skill_id",
+    "repair_artifacts",
+    "max_attempts",
+    "attempt_count",
+    "repair_scope",
+    "forbidden_scope_expansions"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "repair_id": {"type": "string"},
+    "parent_task_id": {"type": "string"},
+    "failure_rule_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string"},
+      "description": "IDs of validation rules that triggered this repair."
+    },
+    "repair_skill_id": {"type": "string"},
+    "repair_artifacts": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Artifact paths that this repair task may modify. Must be a subset of the parent task's allowed_write_paths."
+    },
+    "max_attempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "Hard cap. Exceeding this routes to HUMAN_REVIEW."
+    },
+    "attempt_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "repair_scope": {
+      "type": "string",
+      "description": "One-sentence description of what the repair is allowed to change."
+    },
+    "forbidden_scope_expansions": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Actions this repair must never take, even if they would fix the failure."
+    },
+    "new_paths_allowed": {
+      "type": "boolean",
+      "description": "Whether the repair may write to paths not in the parent task. Default false."
+    },
+    "new_commands_allowed": {
+      "type": "boolean",
+      "description": "Whether the repair may run commands not in the parent task. Default false."
+    }
+  }
+}

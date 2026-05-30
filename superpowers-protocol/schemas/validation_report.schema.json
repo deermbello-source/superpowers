@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/validation_report.schema.json",
+  "title": "ValidationReport",
+  "description": "Result of 07_validation_runner evaluating all rules in validation_rules.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "validated_at",
+    "rules_evaluated",
+    "fatal_failures",
+    "repairable_failures",
+    "warnings",
+    "overall_status",
+    "safe_to_continue"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "validated_at": {"type": "string", "format": "date-time"},
+    "rules_evaluated": {"type": "integer", "minimum": 0},
+    "fatal_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "check_name", "failure_detail"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "check_name": {"type": "string"},
+          "failure_detail": {"type": "string"}
+        }
+      }
+    },
+    "repairable_failures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "check_name", "failure_detail"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "check_name": {"type": "string"},
+          "failure_detail": {"type": "string"},
+          "suggested_repair": {"type": "string"}
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "check_name", "detail"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "check_name": {"type": "string"},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["VALIDATED", "REPAIR_REQUIRED", "BLOCKED_VALIDATION"]
+    },
+    "safe_to_continue": {
+      "type": "boolean",
+      "description": "True only when overall_status is VALIDATED and fatal_failures is empty."
+    }
+  }
+}

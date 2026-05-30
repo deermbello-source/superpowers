@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/handoff_check.schema.json",
+  "title": "HandoffCheck",
+  "description": "Gate artifact produced by 11_handoff_checker. Verifies the producing skill's output satisfies the consuming skill's input_contract before the next skill runs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "from_skill",
+    "to_skill",
+    "handoff_artifact_path",
+    "handoff_artifact_schema",
+    "checked_at",
+    "checks",
+    "handoff_valid"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "from_skill": {"type": "string"},
+    "to_skill": {"type": "string"},
+    "handoff_artifact_path": {"type": "string"},
+    "handoff_artifact_schema": {"type": "string"},
+    "checked_at": {"type": "string", "format": "date-time"},
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check", "passed"],
+        "properties": {
+          "check": {
+            "type": "string",
+            "enum": [
+              "consumer_input_path_exists",
+              "consumer_required_fields_present",
+              "artifact_schema_matches_consumer_contract",
+              "no_unresolved_unknown_blocks_next_step"
+            ]
+          },
+          "passed": {"type": "boolean"},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "handoff_valid": {
+      "type": "boolean",
+      "description": "True only when all checks passed. Next skill MUST NOT run unless handoff_valid is true."
+    },
+    "handoff_failure_reason": {"type": "string"}
+  }
+}

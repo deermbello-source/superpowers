@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/promotion_record.schema.json",
+  "title": "PromotionRecord",
+  "description": "Gate record produced by 10_promotion_gate. Human approval required before PROMOTED state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "promoted_at",
+    "promotion_type",
+    "gate_checks_passed",
+    "gate_checks_failed",
+    "human_approved",
+    "promoted_by",
+    "artifacts_promoted"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "promoted_at": {"type": "string", "format": "date-time"},
+    "promotion_type": {
+      "type": "string",
+      "enum": ["merge", "pull_request", "tag", "artifact_export"]
+    },
+    "gate_checks_passed": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "List of checks that must ALL be present before human_approved can be true."
+    },
+    "gate_checks_failed": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "required_checks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "execution_result_exists",
+          "validation_report_safe_to_continue",
+          "receipt_exists",
+          "no_fatal_drift",
+          "no_unresolved_assumption"
+        ]
+      }
+    },
+    "human_approved": {
+      "type": "boolean",
+      "description": "Default false. Must be explicitly set to true by a human, not by a skill."
+    },
+    "approved_by": {"type": "string"},
+    "promoted_by": {
+      "type": "string",
+      "enum": ["human", "system_auto"],
+      "description": "system_auto only allowed for documentation and uv_texture_asset workflow types."
+    },
+    "artifacts_promoted": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact_path", "artifact_name", "version"],
+        "properties": {
+          "artifact_path": {"type": "string"},
+          "artifact_name": {"type": "string"},
+          "version": {"type": "string"}
+        }
+      }
+    }
+  }
+}

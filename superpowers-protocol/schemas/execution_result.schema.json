@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/execution_result.schema.json",
+  "title": "ExecutionResult",
+  "description": "Record of what actually happened during 06_controlled_execution. One result per task attempt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "task_id",
+    "step_number",
+    "attempt_number",
+    "started_at",
+    "completed_at",
+    "status",
+    "preconditions_checked",
+    "files_created",
+    "files_modified",
+    "commands_run",
+    "outputs",
+    "errors",
+    "assumptions_made",
+    "deviations",
+    "locks_acquired",
+    "locks_released"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "task_id": {"type": "string"},
+    "step_number": {"type": "integer"},
+    "attempt_number": {"type": "integer", "minimum": 1},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "status": {
+      "type": "string",
+      "enum": ["success", "failed", "blocked", "partial"]
+    },
+    "preconditions_checked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["condition", "passed"],
+        "properties": {
+          "condition": {"type": "string"},
+          "passed": {"type": "boolean"},
+          "detail": {"type": "string"}
+        }
+      }
+    },
+    "files_created": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "checksum_sha256"],
+        "properties": {
+          "path": {"type": "string"},
+          "checksum_sha256": {"type": "string"}
+        }
+      }
+    },
+    "files_modified": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "checksum_sha256"],
+        "properties": {
+          "path": {"type": "string"},
+          "checksum_sha256": {"type": "string"}
+        }
+      }
+    },
+    "commands_run": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "exit_code"],
+        "properties": {
+          "command": {"type": "string"},
+          "exit_code": {"type": "integer"},
+          "stdout_digest": {"type": "string"},
+          "stderr_digest": {"type": "string"}
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "errors": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "assumptions_made": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Any assumption made during execution, even if deemed safe. Must be empty when assumption_policy is assumptions_not_allowed."
+    },
+    "deviations": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Any deviation from the action_spec. Each deviation must reference a failure_routing entry."
+    },
+    "locks_acquired": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "locks_released": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

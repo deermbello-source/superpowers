@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/lock.schema.json",
+  "title": "Lock",
+  "description": "Concurrency control record. Prevents two active tasks from writing the same file or resource.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "lock_id",
+    "lock_type",
+    "locked_item",
+    "locked_by_skill",
+    "locked_by_task",
+    "locked_at",
+    "status",
+    "release_condition"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "lock_id": {"type": "string"},
+    "lock_type": {
+      "type": "string",
+      "enum": ["file", "folder", "repo", "artifact", "workflow", "schema"]
+    },
+    "locked_item": {
+      "type": "string",
+      "description": "Path, repo name, artifact name, or workflow ID being locked."
+    },
+    "locked_by_skill": {"type": "string"},
+    "locked_by_task": {"type": "string"},
+    "locked_at": {"type": "string", "format": "date-time"},
+    "released_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "released"]
+    },
+    "release_condition": {
+      "type": "string",
+      "description": "What must happen for this lock to be released (e.g., 'task_complete', 'execution_result_written')."
+    }
+  }
+}

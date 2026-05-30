@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "superpowers-protocol/schemas/receipt.schema.json",
+  "title": "Receipt",
+  "description": "Append-only audit record written by 09_receipt_writer. Enforces deterministic artifact naming via pattern constraint.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "task_id",
+    "step_number",
+    "artifact_name",
+    "artifact_path",
+    "checksum_sha256",
+    "written_at",
+    "written_by_skill",
+    "prior_state",
+    "next_state",
+    "receipt_sequence_number",
+    "is_amendment"
+  ],
+  "properties": {
+    "job_id": {"type": "string"},
+    "task_id": {"type": "string"},
+    "step_number": {"type": "integer"},
+    "artifact_name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+_[0-9]{2}_[a-z_]+_v[0-9]+\\.[a-z]+$",
+      "description": "Must match: {job_id}_{step_number}_{artifact_type}_v{version}.{ext}. Enforced by regex."
+    },
+    "artifact_path": {"type": "string"},
+    "checksum_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "written_at": {"type": "string", "format": "date-time"},
+    "written_by_skill": {"type": "string"},
+    "prior_state": {
+      "type": "string",
+      "enum": [
+        "DRAFT", "INTAKE_LOCKED", "CAPABILITY_MAPPED", "CONTRACT_READY",
+        "TASK_READY", "EXECUTING", "VALIDATING", "REPAIR_REQUIRED",
+        "REPAIRING", "VALIDATED", "PROMOTED", "RECEIPTED",
+        "BLOCKED_INTAKE", "BLOCKED_CAPABILITY", "BLOCKED_CONTRACT",
+        "BLOCKED_EXECUTION", "BLOCKED_VALIDATION", "BLOCKED_REPAIR", "HUMAN_REVIEW"
+      ]
+    },
+    "next_state": {
+      "type": "string",
+      "enum": [
+        "DRAFT", "INTAKE_LOCKED", "CAPABILITY_MAPPED", "CONTRACT_READY",
+        "TASK_READY", "EXECUTING", "VALIDATING", "REPAIR_REQUIRED",
+        "REPAIRING", "VALIDATED", "PROMOTED", "RECEIPTED",
+        "BLOCKED_INTAKE", "BLOCKED_CAPABILITY", "BLOCKED_CONTRACT",
+        "BLOCKED_EXECUTION", "BLOCKED_VALIDATION", "BLOCKED_REPAIR", "HUMAN_REVIEW"
+      ]
+    },
+    "receipt_sequence_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Monotonically increasing per job. Used to detect receipt tampering."
+    },
+    "is_amendment": {
+      "type": "boolean",
+      "description": "True if this is a correction to a prior receipt. Amendments do not overwrite; they add."
+    },
+    "amends_receipt_sequence": {
+      "type": "integer",
+      "description": "Required when is_amendment is true. The sequence number being corrected."
+    },
+    "amendment_reason": {
+      "type": "string",
+      "description": "Required when is_amendment is true."
+    }
+  },
+  "if": {"properties": {"is_amendment": {"const": true}}},
+  "then": {"required": ["amends_receipt_sequence", "amendment_reason"]}
+}
